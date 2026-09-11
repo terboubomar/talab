@@ -145,13 +145,14 @@ export async function submitOrder(params: {
   items: PlaceOrderItem[];
   paymentMethod?: CheckoutPaymentMethod;
   couponReservationId?: string | null;
+  walletReservationId?: string | null;
   areaId?: string;
   lat?: number;
   lng?: number;
   addressText?: string;
 }): Promise<PlaceOrderResult> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-  const { data, error } = await supabase.rpc("storefront_place_order_v3", {
+  const { data, error } = await supabase.rpc("storefront_place_order_v4", {
     p_tenant_slug: TENANT_SLUG,
     p_branch_id: params.branchId,
     p_order_type: params.orderType,
@@ -165,6 +166,7 @@ export async function submitOrder(params: {
     p_address_text: params.addressText ?? null,
     p_payment_method: params.paymentMethod ?? "cash",
     p_coupon_reservation_id: params.couponReservationId ?? null,
+    p_wallet_reservation_id: params.walletReservationId ?? null,
     p_source: "web",
   });
   if (error) throw error;

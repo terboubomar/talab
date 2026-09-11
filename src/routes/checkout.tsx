@@ -204,7 +204,7 @@ function CheckoutContent({ selection, cart, setCart }: {
     try {
       const d = selection.delivery;
       let refreshedCoupon = couponQuote;
-      if (couponQuote && couponCode.trim() && couponCartId) {
+      if (couponCode.trim() && couponCartId) {
         try {
           refreshedCoupon = await quoteCoupon({
             branchId: selection.branchId,
@@ -222,7 +222,24 @@ function CheckoutContent({ selection, cart, setCart }: {
           setCouponError(couponMessage(message));
           throw new Error("coupon_refresh_failed");
         }
+      } else if (couponCartId) {
+        try {
+          const auto = await quoteBestAutoCoupon({
+            branchId: selection.branchId,
+            orderType: selection.orderType,
+            customerPhone: phone.trim(),
+            items: orderItems,
+            cartId: couponCartId,
+            ...(d?.areaId ? { areaId: d.areaId } : {}),
+          });
+          refreshedCoupon = auto ? { ...auto, auto_applied: true } : null;
+          setCouponQuote(refreshedCoupon);
+        } catch {
+          refreshedCoupon = null;
+          setCouponQuote(null);
+        }
       }
+
 
       const { order_id, total } = await submitOrder({
         branchId: selection.branchId,

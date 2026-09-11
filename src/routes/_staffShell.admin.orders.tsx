@@ -12,6 +12,7 @@ import {
   type OrderStatus,
   type StaffOrder,
 } from "@/lib/staff";
+import { PAYMENT_STATUS_LABEL } from "@/lib/payments";
 import { formatSAR } from "@/lib/menu";
 
 export const Route = createFileRoute("/_staffShell/admin/orders")({
@@ -251,6 +252,9 @@ function StaffOrdersPage() {
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="chip">{ORDER_TYPE_LABEL[order.order_type]}</span>
                         <span className="chip">{STATUS_LABEL[order.status]}</span>
+                        <span className="chip">
+                          {order.payment_method === "cash" ? "الدفع عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}
+                        </span>
                       </div>
                     </div>
                     <span className="text-sm font-bold text-brand">{formatSAR(order.total)}</span>

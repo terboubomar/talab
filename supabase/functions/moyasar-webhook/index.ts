@@ -74,7 +74,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const publicConfig = (account.public_config ?? {}) as Record<string, unknown>;
-    const webhookEnv = typeof publicConfig.webhook_secret_env === "string" ? publicConfig.webhook_secret_env : "MOYASAR_WEBHOOK_SECRET";
+    const webhookEnv = typeof publicConfig.webhook_secret_env === "string"
+      ? publicConfig.webhook_secret_env
+      : "MOYASAR_WEBHOOK_SECRET";
     const webhookSecret = Deno.env.get(webhookEnv);
     if (!webhookSecret) return json({ error: "moyasar_webhook_secret_not_configured" }, 503);
     if (typeof event.secret_token !== "string" || !constantTimeEqual(event.secret_token, webhookSecret)) {
@@ -90,6 +92,25 @@ Deno.serve(async (req: Request) => {
     const expectedCurrency = String(order.currency || "SAR").trim().toUpperCase();
     if (Number(payment.amount) !== expectedAmount || String(payment.currency).toUpperCase() !== expectedCurrency) {
       return json({ error: "payment_amount_mismatch" }, 409);
+    }
+
+    if (String(event.type) === "payment_refunded" || String(payment.status) === "refunded") {
+      const cumulativeRefunded = Number(payment.refunded ?? 0) / 100;
+      const { error: refundError } = await admin.rpc("payment_reconcile_moyasar_refund", {
+        p_payment_account_id: account.id,
+        p_provider_event_id: String(event.id),
+        p_order_id: order.id,
+        p_provider_payment_id: String(payment.id),
+        p_refunded_amount: cumulativeRefunded,
+        p_currency: payment.currency || expectedCurrency,
+        p_payload: event,
+      });
+
+      if (refundError) {
+        console.error("moyasar-webhook refund reconciliation", refundError);
+        return json({ error: "refund_reconciliation_failed" }, 500);
+      }
+      return json({ received: true });
     }
 
     const status = mapStatus(String(payment.status));

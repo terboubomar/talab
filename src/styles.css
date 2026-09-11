@@ -243,3 +243,13 @@
   font-size: 0.8125rem;
   line-height: 1.5;
 }
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+

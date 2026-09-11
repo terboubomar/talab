@@ -78,3 +78,18 @@ export async function fetchRecentPaymentTransactions(limit = 100): Promise<Payme
   if (error) throw error;
   return (data ?? []) as unknown as PaymentTransaction[];
 }
+
+export async function saveMoyasarPublicConfig(input: {
+  environment: "test" | "live";
+  publishableApiKey: string;
+  enableApplePay: boolean;
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("admin_save_moyasar_config", {
+    p_environment: input.environment,
+    p_publishable_api_key: input.publishableApiKey.trim(),
+    p_enable_apple_pay: input.enableApplePay,
+  });
+  if (error) throw error;
+  return data as string;
+}

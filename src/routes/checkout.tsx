@@ -360,10 +360,15 @@ function CheckoutContent({ selection, cart, setCart }: {
           </div>
           {couponQuote ? (
             <div className="mt-3 rounded-card border border-success/30 bg-success/10 p-3 text-xs text-success">
-              <p className="font-extrabold">{couponQuote.success_msg_ar || `تم تطبيق ${couponQuote.code}`}</p>
+              <p className="flex flex-wrap items-center gap-2 font-extrabold">
+                <span>{couponQuote.success_msg_ar || `تم تطبيق ${couponQuote.code}`}</span>
+                {couponQuote.auto_applied ? <span className="rounded-pill bg-success/20 px-2 py-0.5 text-[10px] font-bold">تلقائي</span> : null}
+              </p>
+              {couponQuote.auto_applied ? <p className="mt-1" dir="ltr">{couponQuote.code}</p> : null}
               <p className="mt-1">وفّرت {formatSAR(Number(couponQuote.discount) + Number(couponQuote.delivery_discount))}</p>
             </div>
           ) : null}
+
           {couponError ? <p className="mt-2 text-xs font-bold text-danger">{couponError}</p> : null}
         </section>
 

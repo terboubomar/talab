@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
 import { staffSignIn } from "@/lib/staff";
 
@@ -77,6 +77,12 @@ function StaffLoginPage() {
         >
           {submitting ? "جارٍ الدخول..." : "دخول"}
         </button>
+        <Link
+          to="/admin/signup"
+          className="mt-4 block text-center text-xs font-bold text-muted-foreground hover:text-foreground"
+        >
+          تمت دعوتي كموظف — تفعيل الحساب
+        </Link>
       </form>
     </main>
   );

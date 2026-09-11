@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Volume2, Wifi, WifiOff } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import {
   fetchStaffOrders,
   updateOrderStatus,
@@ -117,6 +117,11 @@ function StaffOrdersPage() {
   }
 
   useEffect(() => {
+    if (!supabase) {
+      setRealtimeConnected(false);
+      return;
+    }
+
     let active = true;
 
     const channel = supabase

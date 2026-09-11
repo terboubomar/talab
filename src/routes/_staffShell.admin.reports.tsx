@@ -41,7 +41,7 @@ function OrderReportsPage() {
     enabled: Boolean(from && to && from <= to),
   });
 
-  const maxDailySales = Math.max(1, ...(data?.by_day.map((row) => Number(row.sales)) ?? [1]));
+  const maxDailySales = Math.max(1, ...(data?.by_day.map((row) => Math.max(Number(row.net_sales), 0)) ?? [1]));
 
   function applyPreset(days: number) {
     setTo(today);
@@ -53,7 +53,7 @@ function OrderReportsPage() {
       <header className="border-b border-border bg-background px-5 py-5">
         <h1 className="text-lg font-extrabold">تقارير الطلبات</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          المبيعات تعتمد على الطلبات المكتملة فقط، والتواريخ محسوبة بتوقيت الرياض.
+          إجمالي المبيعات يعتمد على الطلبات المكتملة، وصافي المبيعات يخصم الاستردادات المكتملة في نفس الفترة. التواريخ بتوقيت الرياض.
         </p>
       </header>
 
@@ -98,8 +98,9 @@ function OrderReportsPage() {
           </div>
         ) : data ? (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Kpi label="المبيعات المكتملة" value={formatSAR(Number(data.summary.gross_sales))} />
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <Kpi label="صافي المبيعات" value={formatSAR(Number(data.summary.net_sales))} hint={`إجمالي ${formatSAR(Number(data.summary.gross_sales))}`} />
+              <Kpi label="الاستردادات" value={formatSAR(Number(data.summary.refunds))} hint={`${data.summary.refund_count} عملية استرداد`} />
               <Kpi label="الطلبات المكتملة" value={String(data.summary.completed_orders)} hint={`من ${data.summary.all_orders} طلب`} />
               <Kpi label="متوسط قيمة الطلب" value={formatSAR(Number(data.summary.average_order_value))} />
               <Kpi label="نسبة الإلغاء" value={`${Number(data.summary.cancellation_rate).toFixed(1)}%`} hint={`${data.summary.cancelled_orders} طلب ملغي`} />
@@ -107,15 +108,16 @@ function OrderReportsPage() {
 
             <section className="grid gap-5 xl:grid-cols-2">
               <div className="card-surface p-4">
-                <h2 className="text-sm font-extrabold">اتجاه المبيعات اليومية</h2>
+                <h2 className="text-sm font-extrabold">اتجاه صافي المبيعات اليومية</h2>
                 {data.by_day.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">لا توجد بيانات في هذه الفترة</p>
                 ) : (
                   <div className="mt-5 flex h-52 items-end gap-1 overflow-x-auto border-b border-border pb-2">
                     {data.by_day.map((row) => {
-                      const height = Math.max(4, (Number(row.sales) / maxDailySales) * 170);
+                      const netSales = Number(row.net_sales);
+                      const height = Math.max(4, (Math.max(netSales, 0) / maxDailySales) * 170);
                       return (
-                        <div key={row.day} className="group flex min-w-8 flex-1 flex-col items-center justify-end gap-1" title={`${row.day} — ${formatSAR(Number(row.sales))}`}>
+                        <div key={row.day} className="group flex min-w-8 flex-1 flex-col items-center justify-end gap-1" title={`${row.day} — صافي ${formatSAR(netSales)} — استرداد ${formatSAR(Number(row.refunds))}`}>
                           <span className="text-[10px] font-bold text-muted-foreground opacity-0 group-hover:opacity-100">{row.completed_orders}</span>
                           <div className="w-full max-w-8 rounded-t bg-brand" style={{ height }} />
                           <span className="whitespace-nowrap text-[9px] text-muted-foreground">{row.day.slice(5)}</span>
@@ -133,8 +135,15 @@ function OrderReportsPage() {
                   <MoneyRow label="الضريبة" value={data.summary.tax_total} />
                   <MoneyRow label="رسوم التوصيل" value={data.summary.delivery_fees} />
                   <MoneyRow label="الخصومات" value={data.summary.discounts} negative />
-                  <MoneyRow label="الإجمالي المكتمل" value={data.summary.gross_sales} strong />
+                  <MoneyRow label="إجمالي المبيعات المكتملة" value={data.summary.gross_sales} />
+                  <MoneyRow label="الاستردادات" value={data.summary.refunds} negative />
+                  <MoneyRow label="صافي المبيعات" value={data.summary.net_sales} strong />
                 </dl>
+                {Number(data.summary.refunds) > 0 ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    استرداد الطلبات: {formatSAR(Number(data.summary.order_refunds))} · استرداد التأمين: {formatSAR(Number(data.summary.deposit_refunds))}
+                  </p>
+                ) : null}
               </div>
             </section>
 
@@ -142,10 +151,10 @@ function OrderReportsPage() {
               <div className="card-surface overflow-hidden">
                 <div className="border-b border-border p-4"><h2 className="text-sm font-extrabold">الأداء حسب الفرع</h2></div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-sm">
-                    <thead className="bg-secondary text-xs text-muted-foreground"><tr><th className="px-4 py-3 text-start">الفرع</th><th className="px-4 py-3 text-start">الطلبات</th><th className="px-4 py-3 text-start">المكتملة</th><th className="px-4 py-3 text-start">المبيعات</th></tr></thead>
+                  <table className="w-full min-w-[680px] text-sm">
+                    <thead className="bg-secondary text-xs text-muted-foreground"><tr><th className="px-4 py-3 text-start">الفرع</th><th className="px-4 py-3 text-start">الطلبات</th><th className="px-4 py-3 text-start">المكتملة</th><th className="px-4 py-3 text-start">الإجمالي</th><th className="px-4 py-3 text-start">الاسترداد</th><th className="px-4 py-3 text-start">الصافي</th></tr></thead>
                     <tbody className="divide-y divide-border">
-                      {data.by_branch.map((row) => <tr key={row.branch_id}><td className="px-4 py-3 font-bold">{row.branch_name}</td><td className="px-4 py-3">{row.orders}</td><td className="px-4 py-3">{row.completed_orders}</td><td className="px-4 py-3 font-bold">{formatSAR(Number(row.sales))}</td></tr>)}
+                      {data.by_branch.map((row) => <tr key={row.branch_id}><td className="px-4 py-3 font-bold">{row.branch_name}</td><td className="px-4 py-3">{row.orders}</td><td className="px-4 py-3">{row.completed_orders}</td><td className="px-4 py-3">{formatSAR(Number(row.sales))}</td><td className="px-4 py-3 text-danger">{formatSAR(Number(row.refunds))}</td><td className="px-4 py-3 font-extrabold">{formatSAR(Number(row.net_sales))}</td></tr>)}
                     </tbody>
                   </table>
                 </div>
@@ -156,8 +165,8 @@ function OrderReportsPage() {
                 <div className="divide-y divide-border">
                   {data.by_order_type.map((row) => (
                     <div key={row.order_type} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                      <div><p className="font-bold">{ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type}</p><p className="text-xs text-muted-foreground">{row.completed_orders} مكتمل من {row.orders}</p></div>
-                      <span className="font-extrabold">{formatSAR(Number(row.sales))}</span>
+                      <div><p className="font-bold">{ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type}</p><p className="text-xs text-muted-foreground">{row.completed_orders} مكتمل من {row.orders} · استرداد {formatSAR(Number(row.refunds))}</p></div>
+                      <span className="font-extrabold">{formatSAR(Number(row.net_sales))}</span>
                     </div>
                   ))}
                 </div>

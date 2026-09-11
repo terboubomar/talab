@@ -282,7 +282,7 @@ function CouponEditor({ editor, setEditor, options, saving, canSave, onSave, onC
       </div>
 
       <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={editor.freeDelivery} onChange={(e) => patch({ freeDelivery: e.target.checked })} /> توصيل مجاني مع الكوبون</label>
-      <label className="mt-2 flex items-center gap-2 text-sm font-bold text-muted-foreground"><input type="checkbox" disabled /> التطبيق التلقائي — سيُفعّل بعد اختبار اختيار أفضل كوبون تلقائياً</label>
+      <label className="mt-2 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={editor.autoApply} onChange={(e) => patch({ autoApply: e.target.checked })} /> تطبيق تلقائي — اختيار أفضل كوبون مؤهل للعميل</label>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Field label="رسالة النجاح بالعربية"><input value={editor.successAr} onChange={(e) => patch({ successAr: e.target.value })} className="input" /></Field>

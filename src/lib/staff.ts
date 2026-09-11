@@ -85,6 +85,7 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
       "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
+    .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)")
     .order("placed_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as unknown as StaffOrder[];

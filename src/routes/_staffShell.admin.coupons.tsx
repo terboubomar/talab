@@ -28,6 +28,8 @@ type EditorState = {
   value: string;
   maxDiscount: string;
   freeDelivery: boolean;
+  autoApply: boolean;
+
   minPurchase: string;
   startsAt: string;
   endsAt: string;
@@ -50,6 +52,8 @@ const EMPTY: EditorState = {
   value: "10",
   maxDiscount: "",
   freeDelivery: false,
+  autoApply: false,
+
   minPurchase: "0",
   startsAt: "",
   endsAt: "",
@@ -93,6 +97,8 @@ function fromCoupon(coupon: Coupon): EditorState {
     value: String(coupon.value),
     maxDiscount: coupon.max_discount == null ? "" : String(coupon.max_discount),
     freeDelivery: coupon.free_delivery,
+    autoApply: coupon.auto_apply,
+
     minPurchase: String(coupon.min_purchase),
     startsAt: localInput(coupon.starts_at),
     endsAt: localInput(coupon.ends_at),
@@ -147,7 +153,7 @@ function CouponsPage() {
           ends_at: editor.endsAt ? new Date(editor.endsAt).toISOString() : "",
           total_limit: editor.totalLimit,
           per_customer_limit: editor.perCustomerLimit,
-          auto_apply: false,
+          auto_apply: editor.autoApply,
           day_parting_json: editor.useSchedule
             ? { windows: [{ weekdays: editor.weekdays, start: editor.startTime, end: editor.endTime }] }
             : {},
@@ -224,6 +230,8 @@ function CouponsPage() {
                       <span dir="ltr" className="text-sm font-extrabold">{coupon.code}</span>
                       <span className={`rounded-pill px-2.5 py-1 text-[10px] font-bold ${coupon.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>{coupon.status === "active" ? "مفعّل" : "متوقف"}</span>
                       {coupon.free_delivery ? <span className="rounded-pill bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand">توصيل مجاني</span> : null}
+                      {coupon.auto_apply ? <span className="rounded-pill bg-secondary px-2.5 py-1 text-[10px] font-bold text-foreground">تلقائي</span> : null}
+
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {coupon.discount_type === "percent" ? `${coupon.value}%` : formatSAR(coupon.value)}
@@ -280,7 +288,7 @@ function CouponEditor({ editor, setEditor, options, saving, canSave, onSave, onC
       </div>
 
       <label className="mt-4 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={editor.freeDelivery} onChange={(e) => patch({ freeDelivery: e.target.checked })} /> توصيل مجاني مع الكوبون</label>
-      <label className="mt-2 flex items-center gap-2 text-sm font-bold text-muted-foreground"><input type="checkbox" disabled /> التطبيق التلقائي — سيُفعّل بعد اختبار اختيار أفضل كوبون تلقائياً</label>
+      <label className="mt-2 flex items-center gap-2 text-sm font-bold"><input type="checkbox" checked={editor.autoApply} onChange={(e) => patch({ autoApply: e.target.checked })} /> تطبيق تلقائي — اختيار أفضل كوبون مؤهل للعميل</label>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Field label="رسالة النجاح بالعربية"><input value={editor.successAr} onChange={(e) => patch({ successAr: e.target.value })} className="input" /></Field>

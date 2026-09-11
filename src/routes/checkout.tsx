@@ -15,7 +15,7 @@ import { readCart, saveCart, clearCart } from "@/lib/cart";
 import { cartCount, cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
 import { saveAddress } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
-import { getCouponCartId, quoteCoupon, resetCouponCartId, type CouponQuote } from "@/lib/coupons";
+import { getCouponCartId, quoteBestAutoCoupon, quoteCoupon, resetCouponCartId, type CouponQuote } from "@/lib/coupons";
 import { MoyasarPaymentForm } from "@/components/moyasar-payment-form";
 
 export const Route = createFileRoute("/checkout")({
@@ -150,12 +150,51 @@ function CheckoutContent({ selection, cart, setCart }: {
     (paymentMethod === "cash" || Boolean(paymentOption)),
   [name, phone, cart, submitting, paymentMethod, paymentOption]);
 
+  const itemsKey = useMemo(() => JSON.stringify(orderItems), [orderItems]);
+  const manualCode = couponCode.trim();
+  const areaId = selection.delivery?.areaId;
+
+  // Auto-apply: pick the best eligible coupon while no manual code is entered.
+  useEffect(() => {
+    if (manualCode) return;
+    if (!couponCartId || cart.length === 0 || phone.trim().length < 9) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      quoteBestAutoCoupon({
+        branchId: selection.branchId,
+        orderType: selection.orderType,
+        customerPhone: phone.trim(),
+        items: orderItems,
+        cartId: couponCartId,
+        ...(areaId ? { areaId } : {}),
+      })
+        .then((quote) => {
+          if (!active) return;
+          if (quote) {
+            setCouponQuote({ ...quote, auto_applied: true });
+            setCouponError(null);
+          } else {
+            setCouponQuote((prev) => (prev?.auto_applied ? null : prev));
+          }
+        })
+        .catch(() => {
+          if (active) setCouponQuote((prev) => (prev?.auto_applied ? null : prev));
+        });
+    }, 400);
+    return () => { active = false; clearTimeout(timer); };
+  }, [manualCode, couponCartId, phone, itemsKey, orderItems, cart.length, areaId, selection.branchId, selection.orderType]);
+
   function invalidateCoupon() {
-    if (couponQuote) {
+    if (!couponQuote) return;
+    if (couponQuote.auto_applied) {
+      // auto-applied offers recalculate on their own, no warning needed
       setCouponQuote(null);
-      setCouponError("تم تعديل السلة. أعد تطبيق الكوبون لتحديث الخصم.");
+      return;
     }
+    setCouponQuote(null);
+    setCouponError("تم تعديل السلة. أعد تطبيق الكوبون لتحديث الخصم.");
   }
+
 
   function updateQty(key: string, delta: number) {
     invalidateCoupon();
@@ -204,7 +243,7 @@ function CheckoutContent({ selection, cart, setCart }: {
     try {
       const d = selection.delivery;
       let refreshedCoupon = couponQuote;
-      if (couponQuote && couponCode.trim() && couponCartId) {
+      if (couponQuote && !couponQuote.auto_applied && couponCode.trim() && couponCartId) {
         try {
           refreshedCoupon = await quoteCoupon({
             branchId: selection.branchId,
@@ -222,7 +261,24 @@ function CheckoutContent({ selection, cart, setCart }: {
           setCouponError(couponMessage(message));
           throw new Error("coupon_refresh_failed");
         }
+      } else if (!couponCode.trim() && couponCartId) {
+        try {
+          const auto = await quoteBestAutoCoupon({
+            branchId: selection.branchId,
+            orderType: selection.orderType,
+            customerPhone: phone.trim(),
+            items: orderItems,
+            cartId: couponCartId,
+            ...(d?.areaId ? { areaId: d.areaId } : {}),
+          });
+          refreshedCoupon = auto ? { ...auto, auto_applied: true } : null;
+          setCouponQuote(refreshedCoupon);
+        } catch {
+          refreshedCoupon = null;
+          setCouponQuote(null);
+        }
       }
+
 
       const { order_id, total } = await submitOrder({
         branchId: selection.branchId,
@@ -360,10 +416,15 @@ function CheckoutContent({ selection, cart, setCart }: {
           </div>
           {couponQuote ? (
             <div className="mt-3 rounded-card border border-success/30 bg-success/10 p-3 text-xs text-success">
-              <p className="font-extrabold">{couponQuote.success_msg_ar || `تم تطبيق ${couponQuote.code}`}</p>
+              <p className="flex flex-wrap items-center gap-2 font-extrabold">
+                <span>{couponQuote.success_msg_ar || `تم تطبيق ${couponQuote.code}`}</span>
+                {couponQuote.auto_applied ? <span className="rounded-pill bg-success/20 px-2 py-0.5 text-[10px] font-bold">تلقائي</span> : null}
+              </p>
+              {couponQuote.auto_applied ? <p className="mt-1" dir="ltr">{couponQuote.code}</p> : null}
               <p className="mt-1">وفّرت {formatSAR(Number(couponQuote.discount) + Number(couponQuote.delivery_discount))}</p>
             </div>
           ) : null}
+
           {couponError ? <p className="mt-2 text-xs font-bold text-danger">{couponError}</p> : null}
         </section>
 

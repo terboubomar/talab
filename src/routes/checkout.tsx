@@ -222,7 +222,7 @@ function CheckoutContent({ selection, cart, setCart }: {
           setCouponError(couponMessage(message));
           throw new Error("coupon_refresh_failed");
         }
-      } else if (couponCartId) {
+      } else if (!couponCode.trim() && couponCartId) {
         try {
           const auto = await quoteBestAutoCoupon({
             branchId: selection.branchId,

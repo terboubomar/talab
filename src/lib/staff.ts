@@ -128,6 +128,37 @@ export async function createManualRefund(input: {
   };
 }
 
+export async function createGatewayRefund(input: {
+  orderId: string;
+  amount: number;
+  reason: string;
+  kind: RefundKind;
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("moyasar-refund", {
+    body: {
+      orderId: input.orderId,
+      amount: input.amount,
+      reason: input.reason,
+      kind: input.kind,
+    },
+  });
+  if (error) throw error;
+  if (!data?.ok) throw new Error(data?.error ?? "gateway_refund_failed");
+  return data as {
+    ok: true;
+    refund: {
+      id: string;
+      order_id: string;
+      status: "completed";
+      amount: number;
+      currency: string;
+      payment_transaction_id: string;
+    };
+    provider: { id: string; status: string };
+  };
+}
+
 export async function updateOrderStatus(orderId: string, next: OrderStatus) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { error } = await supabase.rpc("staff_update_order_status", {

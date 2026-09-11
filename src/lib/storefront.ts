@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 export const TENANT_SLUG = "past";
 
 export type OrderType = "pickup" | "delivery" | "curbside" | "dinein";
+export type CheckoutPaymentMethod = "cash" | "online";
 
 export type Branch = {
   id?: string;
@@ -20,6 +21,15 @@ export type Brand = {
   name_ar: string | null;
   logo_url: string | null;
   theme: Record<string, unknown> | null;
+};
+
+export type StorefrontPaymentOption = {
+  account_id: string;
+  provider: "moyasar" | string;
+  environment: "test" | "live";
+  methods: string[];
+  publishable_api_key: string;
+  supported_networks: string[];
 };
 
 export const ORDER_TYPE_LABEL: Record<OrderType, string> = {
@@ -49,7 +59,6 @@ export const brandQuery = queryOptions({
     const { data, error } = await supabase.rpc("storefront_brand", {
       p_tenant_slug: TENANT_SLUG,
     });
-    // The brand row is decorative here — never block the page on it.
     if (error) return null;
     const row = Array.isArray(data) ? data[0] : data;
     return (row ?? null) as Brand | null;
@@ -117,6 +126,16 @@ export type PlaceOrderResult = {
   total: number;
 };
 
+export async function fetchStorefrontPaymentOption(branchId: string): Promise<StorefrontPaymentOption | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("storefront_payment_options", {
+    p_branch_id: branchId,
+  });
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return (row ?? null) as StorefrontPaymentOption | null;
+}
+
 export async function submitOrder(params: {
   branchId: string;
   orderType: OrderType;
@@ -124,13 +143,14 @@ export async function submitOrder(params: {
   customerPhone: string;
   notes: string | null;
   items: PlaceOrderItem[];
+  paymentMethod?: CheckoutPaymentMethod;
   areaId?: string;
   lat?: number;
   lng?: number;
   addressText?: string;
 }): Promise<PlaceOrderResult> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-  const { data, error } = await supabase.rpc("storefront_place_order", {
+  const { data, error } = await supabase.rpc("storefront_place_order_v2", {
     p_tenant_slug: TENANT_SLUG,
     p_branch_id: params.branchId,
     p_order_type: params.orderType,
@@ -142,6 +162,7 @@ export async function submitOrder(params: {
     p_lat: params.lat ?? null,
     p_lng: params.lng ?? null,
     p_address_text: params.addressText ?? null,
+    p_payment_method: params.paymentMethod ?? "cash",
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;

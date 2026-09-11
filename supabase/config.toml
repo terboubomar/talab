@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.moyasar-webhook]
 verify_jwt = false
+
+[functions.moyasar-refund]
+verify_jwt = true

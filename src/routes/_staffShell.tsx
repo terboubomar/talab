@@ -16,7 +16,7 @@ const NAV_ITEMS: { label: string; to: string; perm: string; enabled: boolean }[]
   { label: "الفروع", to: "/admin/branches", perm: "branches.view", enabled: false },
   { label: "أدوات التسويق", to: "/admin/marketing", perm: "marketing.tools", enabled: false },
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: false },
-  { label: "الموظفين", to: "/admin/staff", perm: "staff.view", enabled: false },
+  { label: "الموظفين", to: "/admin/staff", perm: "staff.view", enabled: true },
   { label: "المدفوعات", to: "/admin/payments", perm: "payments.view", enabled: false },
   { label: "الإعدادات", to: "/admin/settings", perm: "settings.manage", enabled: false },
 ];

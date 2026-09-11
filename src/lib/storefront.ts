@@ -62,6 +62,24 @@ export type Selection = {
   branchId: string;
   branchNameAr: string;
   orderType: OrderType;
+  delivery?: {
+    areaId: string;
+    areaNameAr: string;
+    lat: number;
+    lng: number;
+    street: string;
+    unitNo: string;
+    floor: string;
+    apartment: string;
+    notes: string;
+    label: string;
+    fee: number;
+    minOrder: number;
+    belowMinFee: number;
+    etaMinutes: number;
+    saveForNextTime: boolean;
+    phone: string;
+  };
 };
 
 const STORAGE_KEY = "talab.selection";
@@ -106,6 +124,10 @@ export async function submitOrder(params: {
   customerPhone: string;
   notes: string | null;
   items: PlaceOrderItem[];
+  areaId?: string;
+  lat?: number;
+  lng?: number;
+  addressText?: string;
 }): Promise<PlaceOrderResult> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("storefront_place_order", {
@@ -116,6 +138,10 @@ export async function submitOrder(params: {
     p_customer_phone: params.customerPhone,
     p_notes: params.notes,
     p_items: params.items,
+    p_area_id: params.areaId ?? null,
+    p_lat: params.lat ?? null,
+    p_lng: params.lng ?? null,
+    p_address_text: params.addressText ?? null,
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;

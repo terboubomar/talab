@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StaffShellRouteImport } from './routes/_staffShell'
 import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as DeliveryAddressRouteImport } from './routes/delivery-address'
 import { Route as MenuRouteImport } from './routes/menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
@@ -29,6 +30,11 @@ const StaffShellRoute = StaffShellRouteImport.update({
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeliveryAddressRoute = DeliveryAddressRouteImport.update({
+  id: '/delivery-address',
+  path: '/delivery-address',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MenuRoute = MenuRouteImport.update({
@@ -55,6 +61,7 @@ const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
+  '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
+  '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_staffShell': typeof StaffShellRouteWithChildren
   '/checkout': typeof CheckoutRoute
+  '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
@@ -81,14 +90,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/checkout' | '/menu' | '/admin/login' | '/admin/orders' | '/admin/'
+    | '/'
+    | '/checkout'
+    | '/delivery-address'
+    | '/menu'
+    | '/admin/login'
+    | '/admin/orders'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkout' | '/menu' | '/admin/login' | '/admin/orders' | '/admin'
+  to:
+    | '/'
+    | '/checkout'
+    | '/delivery-address'
+    | '/menu'
+    | '/admin/login'
+    | '/admin/orders'
+    | '/admin'
   id:
     | '__root__'
     | '/'
     | '/_staffShell'
     | '/checkout'
+    | '/delivery-address'
     | '/menu'
     | '/admin/login'
     | '/_staffShell/admin/orders'
@@ -99,6 +122,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   StaffShellRoute: typeof StaffShellRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
+  DeliveryAddressRoute: typeof DeliveryAddressRoute
   MenuRoute: typeof MenuRoute
   AdminLoginRoute: typeof AdminLoginRoute
 }
@@ -124,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/checkout'
       fullPath: '/checkout'
       preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/delivery-address': {
+      id: '/delivery-address'
+      path: '/delivery-address'
+      fullPath: '/delivery-address'
+      preLoaderRoute: typeof DeliveryAddressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/menu': {
@@ -175,6 +206,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   StaffShellRoute: StaffShellRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
+  DeliveryAddressRoute: DeliveryAddressRoute,
   MenuRoute: MenuRoute,
   AdminLoginRoute: AdminLoginRoute,
 }

@@ -40,11 +40,7 @@ function BranchPicker() {
   const [openBranch, setOpenBranch] = useState<string | null>(null);
 
   const { data: brand } = useQuery(brandQuery);
-  const {
-    data: branches,
-    isLoading,
-    isError,
-  } = useQuery(branchesQuery);
+  const { data: branches, isLoading, isError } = useQuery(branchesQuery);
 
   useEffect(() => {
     applyBrandTheme(brand?.theme);
@@ -77,7 +73,7 @@ function BranchPicker() {
       branchNameAr: branch.name_ar,
       orderType,
     });
-    navigate({ to: "/menu" });
+    navigate({ to: orderType === "delivery" ? "/delivery-address" : "/menu" });
   }
 
   return (
@@ -91,12 +87,8 @@ function BranchPicker() {
               className="h-16 w-auto object-contain"
             />
           ) : null}
-          <h1 className="text-2xl font-extrabold tracking-tight">
-            {brand?.name_ar ?? "طلب"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            اختر الفرع الأقرب لك وطريقة استلام طلبك
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight">{brand?.name_ar ?? "طلب"}</h1>
+          <p className="text-sm text-muted-foreground">اختر الفرع الأقرب لك وطريقة استلام طلبك</p>
         </div>
       </header>
 
@@ -169,9 +161,7 @@ function BranchPicker() {
                                 </span>
                               ) : null}
                             </span>
-                            <span className="text-sm text-muted-foreground">
-                              {branch.city_ar}
-                            </span>
+                            <span className="text-sm text-muted-foreground">{branch.city_ar}</span>
                             {branch.phone ? (
                               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <Phone aria-hidden className="size-3.5" />

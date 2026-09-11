@@ -6,6 +6,7 @@ import { readSelection, type Selection } from "@/lib/storefront";
 import { readCart, saveCart, clearCart } from "@/lib/cart";
 import { cartCount, cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
 import { submitOrder } from "@/lib/storefront";
+import { saveAddress } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/checkout")({
@@ -74,6 +75,7 @@ function CheckoutContent({
   const [result, setResult] = useState<{ orderId: string; total: number } | null>(null);
 
   useEffect(() => {
+    if (selection.delivery?.phone) setPhone(selection.delivery.phone);
     if (!supabase) return;
     supabase.auth.getUser().then(({ data }) => {
       const user = data.user;
@@ -83,7 +85,14 @@ function CheckoutContent({
       if (typeof meta?.["phone"] === "string") setPhone(meta["phone"] as string);
       else if (user.phone) setPhone(user.phone);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const estimatedDeliveryFee = useMemo(() => {
+    if (!selection.delivery) return 0;
+    const { fee, belowMinFee, minOrder } = selection.delivery;
+    return cartTotal(cart) >= minOrder ? fee : belowMinFee;
+  }, [selection.delivery, cart]);
 
   const count = cartCount(cart);
   const subtotal = cartTotal(cart);
@@ -112,6 +121,7 @@ function CheckoutContent({
     setSubmitting(true);
     setError(null);
     try {
+      const d = selection.delivery;
       const { order_id, total } = await submitOrder({
         branchId: selection.branchId,
         orderType: selection.orderType,
@@ -124,8 +134,40 @@ function CheckoutContent({
           modifier_ids: line.modifierIds,
           ...(line.note ? { note: line.note } : {}),
         })),
+        ...(d
+          ? {
+              areaId: d.areaId,
+              lat: d.lat,
+              lng: d.lng,
+              addressText: [
+                d.street,
+                d.unitNo && `مبنى ${d.unitNo}`,
+                d.floor && `طابق ${d.floor}`,
+                d.apartment && `شقة ${d.apartment}`,
+              ]
+                .filter(Boolean)
+                .join("، "),
+            }
+          : {}),
       });
       clearCart();
+      if (d?.saveForNextTime) {
+        saveAddress({
+          customerName: name.trim(),
+          customerPhone: phone.trim(),
+          areaId: d.areaId,
+          lat: d.lat,
+          lng: d.lng,
+          street: d.street,
+          unitNo: d.unitNo,
+          floor: d.floor,
+          apartment: d.apartment,
+          notes: d.notes,
+          label: d.label,
+        }).catch(() => {
+          /* saving the address is a convenience, never block on it */
+        });
+      }
       setResult({ orderId: order_id, total });
     } catch (e) {
       const message = e instanceof Error ? e.message : "حدث خطأ غير متوقع";
@@ -136,7 +178,9 @@ function CheckoutContent({
             ? "أحد الأصناف لم يعد متوفراً، الرجاء مراجعة السلة"
             : message === "qty_below_minimum" || message === "qty_above_maximum"
               ? "الكمية المطلوبة لأحد الأصناف غير صحيحة"
-              : "تعذّر إتمام الطلب، حاول مرة أخرى",
+              : message === "missing_delivery_area" || message === "invalid_delivery_area"
+                ? "الرجاء اختيار عنوان توصيل صالح"
+                : "تعذّر إتمام الطلب، حاول مرة أخرى",
       );
     } finally {
       setSubmitting(false);
@@ -285,11 +329,30 @@ function CheckoutContent({
           </div>
         </section>
 
+        {selection.delivery ? (
+          <section className="card-surface mt-4 p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span className="font-bold">التوصيل إلى {selection.delivery.areaNameAr}</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selection.delivery.street}
+              {selection.delivery.unitNo ? `، مبنى ${selection.delivery.unitNo}` : ""}
+              {selection.delivery.apartment ? `، شقة ${selection.delivery.apartment}` : ""}
+            </p>
+          </section>
+        ) : null}
+
         <section className="card-surface mt-4 p-4">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">{count} أصناف</span>
             <span className="font-bold">{formatSAR(subtotal)}</span>
           </div>
+          {selection.delivery ? (
+            <div className="mt-1 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">رسوم التوصيل</span>
+              <span className="font-bold">{formatSAR(estimatedDeliveryFee)}</span>
+            </div>
+          ) : null}
           <p className="mt-1 text-xs text-muted-foreground">الأسعار شاملة ضريبة القيمة المضافة</p>
         </section>
 
@@ -308,7 +371,9 @@ function CheckoutContent({
             onClick={handleSubmit}
             className="w-full rounded-pill bg-brand px-5 py-3.5 text-sm font-bold text-brand-ink disabled:opacity-50"
           >
-            {submitting ? "جارٍ إرسال الطلب..." : `تأكيد الطلب · ${formatSAR(subtotal)}`}
+            {submitting
+              ? "جارٍ إرسال الطلب..."
+              : `تأكيد الطلب · ${formatSAR(subtotal + estimatedDeliveryFee)}`}
           </button>
         </div>
       </div>

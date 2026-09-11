@@ -14,10 +14,17 @@ import { Route as StaffShellRouteImport } from './routes/_staffShell'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as DeliveryAddressRouteImport } from './routes/delivery-address'
 import { Route as MenuRouteImport } from './routes/menu'
+import { Route as PaymentResultRouteImport } from './routes/payment-result'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as AdminSignupRouteImport } from './routes/admin.signup'
 import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
+import { Route as StaffShellAdminCouponsRouteImport } from './routes/_staffShell.admin.coupons'
 import { Route as StaffShellAdminOrdersRouteImport } from './routes/_staffShell.admin.orders'
+import { Route as StaffShellAdminPaymentsRouteImport } from './routes/_staffShell.admin.payments'
 import { Route as StaffShellAdminProductsRouteImport } from './routes/_staffShell.admin.products'
+import { Route as StaffShellAdminRefundsRouteImport } from './routes/_staffShell.admin.refunds'
+import { Route as StaffShellAdminReportsRouteImport } from './routes/_staffShell.admin.reports'
+import { Route as StaffShellAdminStaffRouteImport } from './routes/_staffShell.admin.staff'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,9 +50,19 @@ const MenuRoute = MenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PaymentResultRoute = PaymentResultRouteImport.update({
+  id: '/payment-result',
+  path: '/payment-result',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSignupRoute = AdminSignupRouteImport.update({
+  id: '/admin/signup',
+  path: '/admin/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StaffShellAdminIndexRoute = StaffShellAdminIndexRouteImport.update({
@@ -53,14 +70,39 @@ const StaffShellAdminIndexRoute = StaffShellAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => StaffShellRoute,
 } as any)
+const StaffShellAdminCouponsRoute = StaffShellAdminCouponsRouteImport.update({
+  id: '/admin/coupons',
+  path: '/admin/coupons',
+  getParentRoute: () => StaffShellRoute,
+} as any)
 const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({
   id: '/admin/orders',
   path: '/admin/orders',
   getParentRoute: () => StaffShellRoute,
 } as any)
+const StaffShellAdminPaymentsRoute = StaffShellAdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => StaffShellRoute,
+} as any)
 const StaffShellAdminProductsRoute = StaffShellAdminProductsRouteImport.update({
   id: '/admin/products',
   path: '/admin/products',
+  getParentRoute: () => StaffShellRoute,
+} as any)
+const StaffShellAdminRefundsRoute = StaffShellAdminRefundsRouteImport.update({
+  id: '/admin/refunds',
+  path: '/admin/refunds',
+  getParentRoute: () => StaffShellRoute,
+} as any)
+const StaffShellAdminReportsRoute = StaffShellAdminReportsRouteImport.update({
+  id: '/admin/reports',
+  path: '/admin/reports',
+  getParentRoute: () => StaffShellRoute,
+} as any)
+const StaffShellAdminStaffRoute = StaffShellAdminStaffRouteImport.update({
+  id: '/admin/staff',
+  path: '/admin/staff',
   getParentRoute: () => StaffShellRoute,
 } as any)
 
@@ -69,9 +111,16 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
+  '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/signup': typeof AdminSignupRoute
+  '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
+  '/admin/refunds': typeof StaffShellAdminRefundsRoute
+  '/admin/reports': typeof StaffShellAdminReportsRoute
+  '/admin/staff': typeof StaffShellAdminStaffRoute
   '/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -79,9 +128,16 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
+  '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/signup': typeof AdminSignupRoute
+  '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
+  '/admin/refunds': typeof StaffShellAdminRefundsRoute
+  '/admin/reports': typeof StaffShellAdminReportsRoute
+  '/admin/staff': typeof StaffShellAdminStaffRoute
   '/admin': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -91,9 +147,16 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/delivery-address': typeof DeliveryAddressRoute
   '/menu': typeof MenuRoute
+  '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/signup': typeof AdminSignupRoute
+  '/_staffShell/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/_staffShell/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/_staffShell/admin/products': typeof StaffShellAdminProductsRoute
+  '/_staffShell/admin/refunds': typeof StaffShellAdminRefundsRoute
+  '/_staffShell/admin/reports': typeof StaffShellAdminReportsRoute
+  '/_staffShell/admin/staff': typeof StaffShellAdminStaffRoute
   '/_staffShell/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -103,9 +166,16 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-address'
     | '/menu'
+    | '/payment-result'
     | '/admin/login'
+    | '/admin/signup'
+    | '/admin/coupons'
     | '/admin/orders'
+    | '/admin/payments'
     | '/admin/products'
+    | '/admin/refunds'
+    | '/admin/reports'
+    | '/admin/staff'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -113,9 +183,16 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-address'
     | '/menu'
+    | '/payment-result'
     | '/admin/login'
+    | '/admin/signup'
+    | '/admin/coupons'
     | '/admin/orders'
+    | '/admin/payments'
     | '/admin/products'
+    | '/admin/refunds'
+    | '/admin/reports'
+    | '/admin/staff'
     | '/admin'
   id:
     | '__root__'
@@ -124,9 +201,16 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/delivery-address'
     | '/menu'
+    | '/payment-result'
     | '/admin/login'
+    | '/admin/signup'
+    | '/_staffShell/admin/coupons'
     | '/_staffShell/admin/orders'
+    | '/_staffShell/admin/payments'
     | '/_staffShell/admin/products'
+    | '/_staffShell/admin/refunds'
+    | '/_staffShell/admin/reports'
+    | '/_staffShell/admin/staff'
     | '/_staffShell/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -136,7 +220,9 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   DeliveryAddressRoute: typeof DeliveryAddressRoute
   MenuRoute: typeof MenuRoute
+  PaymentResultRoute: typeof PaymentResultRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminSignupRoute: typeof AdminSignupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -176,11 +262,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MenuRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/payment-result': {
+      id: '/payment-result'
+      path: '/payment-result'
+      fullPath: '/payment-result'
+      preLoaderRoute: typeof PaymentResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/signup': {
+      id: '/admin/signup'
+      path: '/admin/signup'
+      fullPath: '/admin/signup'
+      preLoaderRoute: typeof AdminSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_staffShell/admin/': {
@@ -190,11 +290,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminIndexRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/coupons': {
+      id: '/_staffShell/admin/coupons'
+      path: '/admin/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof StaffShellAdminCouponsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
     '/_staffShell/admin/orders': {
       id: '/_staffShell/admin/orders'
       path: '/admin/orders'
       fullPath: '/admin/orders'
       preLoaderRoute: typeof StaffShellAdminOrdersRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
+    '/_staffShell/admin/payments': {
+      id: '/_staffShell/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof StaffShellAdminPaymentsRouteImport
       parentRoute: typeof StaffShellRoute
     }
     '/_staffShell/admin/products': {
@@ -204,18 +318,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminProductsRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/refunds': {
+      id: '/_staffShell/admin/refunds'
+      path: '/admin/refunds'
+      fullPath: '/admin/refunds'
+      preLoaderRoute: typeof StaffShellAdminRefundsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
+    '/_staffShell/admin/reports': {
+      id: '/_staffShell/admin/reports'
+      path: '/admin/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof StaffShellAdminReportsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
+    '/_staffShell/admin/staff': {
+      id: '/_staffShell/admin/staff'
+      path: '/admin/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof StaffShellAdminStaffRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
   }
 }
 
 interface StaffShellRouteChildren {
+  StaffShellAdminCouponsRoute: typeof StaffShellAdminCouponsRoute
   StaffShellAdminOrdersRoute: typeof StaffShellAdminOrdersRoute
+  StaffShellAdminPaymentsRoute: typeof StaffShellAdminPaymentsRoute
   StaffShellAdminProductsRoute: typeof StaffShellAdminProductsRoute
+  StaffShellAdminRefundsRoute: typeof StaffShellAdminRefundsRoute
+  StaffShellAdminReportsRoute: typeof StaffShellAdminReportsRoute
+  StaffShellAdminStaffRoute: typeof StaffShellAdminStaffRoute
   StaffShellAdminIndexRoute: typeof StaffShellAdminIndexRoute
 }
 
 const StaffShellRouteChildren: StaffShellRouteChildren = {
+  StaffShellAdminCouponsRoute: StaffShellAdminCouponsRoute,
   StaffShellAdminOrdersRoute: StaffShellAdminOrdersRoute,
+  StaffShellAdminPaymentsRoute: StaffShellAdminPaymentsRoute,
   StaffShellAdminProductsRoute: StaffShellAdminProductsRoute,
+  StaffShellAdminRefundsRoute: StaffShellAdminRefundsRoute,
+  StaffShellAdminReportsRoute: StaffShellAdminReportsRoute,
+  StaffShellAdminStaffRoute: StaffShellAdminStaffRoute,
   StaffShellAdminIndexRoute: StaffShellAdminIndexRoute,
 }
 
@@ -229,7 +374,9 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   DeliveryAddressRoute: DeliveryAddressRoute,
   MenuRoute: MenuRoute,
+  PaymentResultRoute: PaymentResultRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminSignupRoute: AdminSignupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

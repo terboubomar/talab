@@ -93,8 +93,9 @@ function MenuContent({ selection }: { selection: Selection }) {
   );
 
   useEffect(() => {
-    if (categories.length === 0) return;
-    setActive((prev) => prev ?? categories[0].id);
+    const first = categories[0];
+    if (!first) return;
+    setActive((prev) => prev ?? first.id);
 
     const observer = new IntersectionObserver(
       (entries) => {

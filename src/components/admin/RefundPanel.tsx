@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { formatSAR } from "@/lib/menu";
 import {
+  createGatewayRefund,
   createManualRefund,
   fetchOrderRefunds,
   type RefundKind,
@@ -15,6 +16,13 @@ type Props = {
   onDone?: () => void | Promise<void>;
 };
 
+const REFUND_STATUS_LABEL = {
+  pending: "قيد التنفيذ",
+  completed: "مكتمل",
+  failed: "فشل",
+  cancelled: "ملغي",
+} as const;
+
 export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -24,6 +32,7 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const gatewayRefund = order.payment_method === "online";
 
   const { data: refunds = [], isLoading } = useQuery({
     queryKey: ["order_refunds", order.id],
@@ -32,18 +41,18 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
   });
 
   const totals = useMemo(() => {
-    let orderRefunded = 0;
-    let depositRefunded = 0;
+    let orderReserved = 0;
+    let depositReserved = 0;
     for (const refund of refunds) {
-      if (refund.status !== "completed") continue;
-      if (refund.kind === "deposit") depositRefunded += Number(refund.amount);
-      else orderRefunded += Number(refund.amount);
+      if (refund.status !== "completed" && refund.status !== "pending") continue;
+      if (refund.kind === "deposit") depositReserved += Number(refund.amount);
+      else orderReserved += Number(refund.amount);
     }
-    return { orderRefunded, depositRefunded };
+    return { orderReserved, depositReserved };
   }, [refunds]);
 
-  const orderRemaining = Math.max(Number(order.total) - totals.orderRefunded, 0);
-  const depositRemaining = Math.max(Number(order.deposit_total) - totals.depositRefunded, 0);
+  const orderRemaining = Math.max(Number(order.total) - totals.orderReserved, 0);
+  const depositRemaining = Math.max(Number(order.deposit_total) - totals.depositReserved, 0);
   const remaining = kind === "deposit" ? depositRemaining : orderRemaining;
 
   function chooseKind(next: RefundKind) {
@@ -74,16 +83,29 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
 
     setSubmitting(true);
     try {
-      await createManualRefund({
+      const input = {
         orderId: order.id,
         amount: numericAmount,
         reason: reason.trim(),
         kind,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["order_refunds", order.id] });
+      };
+
+      if (gatewayRefund) await createGatewayRefund(input);
+      else await createManualRefund(input);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["order_refunds", order.id] }),
+        queryClient.invalidateQueries({ queryKey: ["staff_orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["payment_transactions"] }),
+        queryClient.invalidateQueries({ queryKey: ["staff_order_report"] }),
+      ]);
       setAmount("");
       setReason("");
-      setSuccess("تم تسجيل الاسترداد اليدوي بنجاح");
+      setSuccess(
+        gatewayRefund
+          ? "تم تنفيذ الاسترداد عبر ميسر وتسجيله في طلب"
+          : "تم تسجيل الاسترداد اليدوي بنجاح",
+      );
       await onDone?.();
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
@@ -93,8 +115,14 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
         setError("لا تملك صلاحية تنفيذ هذا الاسترداد");
       } else if (message.includes("order_not_terminal")) {
         setError("لا يمكن استرداد هذا الطلب قبل اكتماله أو إلغائه");
+      } else if (message.includes("gateway_refund_not_available")) {
+        setError("لا توجد عملية دفع إلكتروني مؤكدة قابلة للاسترداد لهذا الطلب");
+      } else if (message.includes("moyasar_secret_not_configured")) {
+        setError("حساب ميسر لم يكتمل إعداده على الخادم بعد");
+      } else if (message.includes("provider_outcome_unknown") || message.includes("refund_ledger_pending")) {
+        setError("حالة الاسترداد تحتاج إلى مطابقة مع ميسر قبل إعادة المحاولة");
       } else {
-        setError("تعذّر تسجيل الاسترداد");
+        setError(gatewayRefund ? "تعذّر تنفيذ الاسترداد عبر ميسر" : "تعذّر تسجيل الاسترداد");
       }
     } finally {
       setSubmitting(false);
@@ -115,15 +143,25 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
         <div className="mt-3 rounded-card border border-border bg-secondary/40 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-extrabold">تسجيل استرداد يدوي</h3>
+              <h3 className="text-sm font-extrabold">
+                {gatewayRefund ? "استرداد عبر ميسر" : "تسجيل استرداد يدوي"}
+              </h3>
               <p className="mt-1 max-w-xl text-xs leading-5 text-muted-foreground">
-                هذا الإجراء يسجل المبلغ كمُعاد للعميل داخل طلب. لا يرسل أموالاً عبر بوابة دفع أو بنك.
+                {gatewayRefund
+                  ? "سيتم إرسال الاسترداد إلى ميسر أولاً، ولن يُسجل كمكتمل داخل طلب إلا بعد نجاح عملية البوابة."
+                  : "هذا الإجراء يسجل المبلغ كمُعاد للعميل داخل طلب. لا يرسل أموالاً عبر بوابة دفع أو بنك."}
               </p>
             </div>
             <div className="text-left text-xs text-muted-foreground">
-              <div>المتبقي من الطلب: <strong className="text-foreground">{formatSAR(orderRemaining)}</strong></div>
+              <div>
+                المتاح للاسترداد من الطلب:{" "}
+                <strong className="text-foreground">{formatSAR(orderRemaining)}</strong>
+              </div>
               {Number(order.deposit_total) > 0 ? (
-                <div className="mt-1">المتبقي من التأمين: <strong className="text-foreground">{formatSAR(depositRemaining)}</strong></div>
+                <div className="mt-1">
+                  المتاح من التأمين:{" "}
+                  <strong className="text-foreground">{formatSAR(depositRemaining)}</strong>
+                </div>
               ) : null}
             </div>
           </div>
@@ -177,7 +215,13 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
               disabled={submitting || remaining <= 0}
               className="rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50"
             >
-              {submitting ? "جارٍ التسجيل..." : "تسجيل الاسترداد"}
+              {submitting
+                ? gatewayRefund
+                  ? "جارٍ الاسترداد..."
+                  : "جارٍ التسجيل..."
+                : gatewayRefund
+                  ? "استرداد عبر ميسر"
+                  : "تسجيل الاسترداد"}
             </button>
           </form>
 
@@ -193,13 +237,21 @@ export function RefundPanel({ order, canRefundDeposit, onDone }: Props) {
             ) : (
               <div className="mt-2 grid gap-2">
                 {refunds.map((refund) => (
-                  <div key={refund.id} className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-border bg-background px-3 py-2 text-xs">
+                  <div
+                    key={refund.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-card border border-border bg-background px-3 py-2 text-xs"
+                  >
                     <div>
-                      <span className="font-bold">{refund.kind === "deposit" ? "تأمين" : "طلب"} — {formatSAR(Number(refund.amount))}</span>
+                      <span className="font-bold">
+                        {refund.kind === "deposit" ? "تأمين" : "طلب"} — {formatSAR(Number(refund.amount))}
+                      </span>
                       <span className="ms-2 text-muted-foreground">{refund.reason}</span>
+                      <span className="ms-2 rounded-pill bg-secondary px-2 py-0.5 font-bold text-muted-foreground">
+                        {refund.execution_mode === "gateway" ? "ميسر" : "يدوي"} · {REFUND_STATUS_LABEL[refund.status]}
+                      </span>
                     </div>
                     <span className="text-muted-foreground">
-                      {refund.created_by_name ?? "موظف"} · {new Date(refund.created_at).toLocaleString("ar-SA")}
+                      {refund.created_by_name ?? "النظام"} · {new Date(refund.created_at).toLocaleString("ar-SA")}
                     </span>
                   </div>
                 ))}

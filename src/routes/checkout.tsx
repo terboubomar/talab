@@ -176,6 +176,7 @@ function CheckoutContent({ selection, cart, setCart }: {
     setCouponApplying(true);
     setCouponError(null);
     try {
+      const areaId = selection.delivery?.areaId;
       const quote = await quoteCoupon({
         branchId: selection.branchId,
         orderType: selection.orderType,
@@ -183,7 +184,7 @@ function CheckoutContent({ selection, cart, setCart }: {
         code: couponCode.trim(),
         items: orderItems,
         cartId: couponCartId,
-        areaId: selection.delivery?.areaId,
+        ...(areaId ? { areaId } : {}),
       });
       setCouponCode(quote.code);
       setCouponQuote(quote);
@@ -212,7 +213,7 @@ function CheckoutContent({ selection, cart, setCart }: {
             code: couponCode.trim(),
             items: orderItems,
             cartId: couponCartId,
-            areaId: d?.areaId,
+            ...(d?.areaId ? { areaId: d.areaId } : {}),
           });
           setCouponQuote(refreshedCoupon);
         } catch (e) {

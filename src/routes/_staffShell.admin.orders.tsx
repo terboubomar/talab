@@ -121,9 +121,10 @@ function StaffOrdersPage() {
     }
 
     let active = true;
+    const client = supabase;
     const confirmedStatuses = new Set(["paid", "partially_refunded"]);
 
-    const channel = supabase
+    const channel = client
       .channel("staff-orders-kds")
       .on(
         "postgres_changes",
@@ -157,7 +158,7 @@ function StaffOrdersPage() {
     return () => {
       active = false;
       setRealtimeConnected(false);
-      void supabase.removeChannel(channel);
+      void client.removeChannel(channel);
     };
   }, [queryClient]);
 

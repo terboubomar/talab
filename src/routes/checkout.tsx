@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Minus, Plus, Trash2, ImageOff, CheckCircle2 } from "lucide-react";
+import { Minus, Plus, Trash2, ImageOff, CheckCircle2, Banknote, CreditCard } from "lucide-react";
 
 import { readSelection, type Selection } from "@/lib/storefront";
 import { readCart, saveCart, clearCart } from "@/lib/cart";
@@ -200,6 +200,7 @@ function CheckoutContent({
             </span>
           </p>
           <p className="mt-1 text-2xl font-extrabold text-brand">{formatSAR(result.total)}</p>
+          <p className="mt-2 text-xs text-muted-foreground">طريقة الدفع: الدفع عند الاستلام</p>
           <Link
             to="/"
             className="mt-6 inline-block w-full rounded-pill bg-brand px-5 py-3 text-sm font-bold text-brand-ink"
@@ -341,6 +342,32 @@ function CheckoutContent({
             </p>
           </section>
         ) : null}
+
+        <section className="card-surface mt-4 p-4">
+          <h2 className="text-sm font-extrabold">طريقة الدفع</h2>
+          <div className="mt-3 grid gap-2">
+            <div className="flex items-center gap-3 rounded-card border border-brand bg-brand/5 p-3">
+              <span className="grid size-9 place-items-center rounded-full bg-brand/10 text-brand">
+                <Banknote aria-hidden className="size-5" />
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-bold">الدفع عند الاستلام</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">متاح الآن</p>
+              </div>
+              <span className="size-4 rounded-full border-4 border-brand" aria-label="محدد" />
+            </div>
+            <div className="flex cursor-not-allowed items-center gap-3 rounded-card border border-border p-3 opacity-55" aria-disabled="true">
+              <span className="grid size-9 place-items-center rounded-full bg-secondary text-muted-foreground">
+                <CreditCard aria-hidden className="size-5" />
+              </span>
+              <div className="flex-1">
+                <p className="text-sm font-bold">الدفع الإلكتروني</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">سيُفعّل بعد ربط مزود الدفع</p>
+              </div>
+              <span className="rounded-pill bg-secondary px-2.5 py-1 text-[10px] font-bold text-muted-foreground">قريباً</span>
+            </div>
+          </div>
+        </section>
 
         <section className="card-surface mt-4 p-4">
           <div className="flex items-center justify-between text-sm">

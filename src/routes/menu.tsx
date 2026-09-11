@@ -162,7 +162,7 @@ function MenuContent({ selection }: { selection: Selection }) {
             {count > 0 ? (
               <span
                 dir="ltr"
-                className="absolute -top-1 inset-inline-end-[-4px] min-w-5 rounded-pill bg-brand px-1.5 text-center text-xs font-bold text-brand-ink"
+                className="absolute -top-1 end-[-4px] min-w-5 rounded-pill bg-brand px-1.5 text-center text-xs font-bold text-brand-ink"
               >
                 {count}
               </span>
@@ -225,7 +225,7 @@ function MenuContent({ selection }: { selection: Selection }) {
       </div>
 
       {count > 0 ? (
-        <div className="fixed inset-inline-0 bottom-0 z-30 border-t border-border bg-background px-5 py-3">
+        <div className="fixed start-0 end-0 bottom-0 z-30 border-t border-border bg-background px-5 py-3">
           <div className="mx-auto max-w-5xl">
             <button
               type="button"
@@ -310,7 +310,7 @@ function ProductCard({
             </span>
           )}
           {outOfStock ? (
-            <span className="chip absolute top-2 inset-inline-start-2 !bg-danger/10 text-xs font-bold text-danger">
+            <span className="chip absolute top-2 start-2 !bg-danger/10 text-xs font-bold text-danger">
               غير متوفر
             </span>
           ) : null}

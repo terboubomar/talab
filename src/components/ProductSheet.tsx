@@ -112,7 +112,7 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
             type="button"
             onClick={onClose}
             aria-label="إغلاق"
-            className="absolute top-3 inset-inline-end-3 grid size-9 place-items-center rounded-pill bg-background/90 shadow-card"
+            className="absolute top-3 end-3 grid size-9 place-items-center rounded-pill bg-background/90 shadow-card"
           >
             <X aria-hidden className="size-4" />
           </button>

@@ -142,3 +142,104 @@
     color: var(--color-foreground);
   }
 }
+
+/* ============================================================
+ * Talab brand layer — token driven.
+ * Every color, radius and font is a variable here. Components must
+ * never hardcode a hex value. brands.theme (jsonb) overrides these
+ * at runtime via src/lib/theme.ts.
+ * ============================================================ */
+
+:root {
+  --ink: #14121a;
+  --surface: #ffffff;
+  --muted-soft: #f5f2ed;
+  --line: #e6e1d8;
+  --accent: #e8256f;
+  --accent-ink: #ffffff;
+  --success: #0e7c66;
+  --danger: #b0342f;
+
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 6px 24px -12px color-mix(in oklab, var(--ink) 30%, transparent);
+
+  --font-heading: "Tajawal", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Arabic", system-ui, sans-serif;
+
+  /* shadcn tokens remapped onto the brand palette */
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--accent);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--muted-soft);
+  --secondary-foreground: var(--ink);
+  --muted: var(--muted-soft);
+  --muted-foreground: color-mix(in oklab, var(--ink) 60%, var(--surface));
+  --accent-foreground: var(--accent-ink);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--surface);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--accent);
+  --radius: var(--radius-card);
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-brand: var(--accent);
+  --color-brand-ink: var(--accent-ink);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
+  --radius-card: var(--radius-card);
+  --radius-pill: var(--radius-pill);
+  --shadow-card: var(--shadow-card);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+  }
+
+  body {
+    font-weight: 400;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.35;
+  }
+}
+
+@utility card-surface {
+  background-color: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+@utility chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--radius-pill);
+  background-color: var(--muted-soft);
+  color: var(--ink);
+  padding-inline: 0.7rem;
+  padding-block: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}

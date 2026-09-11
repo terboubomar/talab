@@ -68,8 +68,6 @@ function StaffOrdersPage() {
   const { data: orders, isLoading } = useQuery({
     queryKey: ["staff_orders", activeTab.statuses],
     queryFn: () => fetchStaffOrders(activeTab.statuses),
-    // Realtime is primary. Keep a slow safety refresh while connected and
-    // preserve the existing 12-second polling when the channel is unavailable.
     refetchInterval: realtimeConnected ? 60_000 : 12_000,
   });
 
@@ -104,7 +102,6 @@ function StaffOrdersPage() {
 
   async function enableSound() {
     if (typeof window === "undefined") return;
-
     try {
       const audioContext = audioContextRef.current ?? new window.AudioContext();
       audioContextRef.current = audioContext;
@@ -124,6 +121,7 @@ function StaffOrdersPage() {
     }
 
     let active = true;
+    const confirmedStatuses = new Set(["paid", "partially_refunded"]);
 
     const channel = supabase
       .channel("staff-orders-kds")
@@ -132,7 +130,23 @@ function StaffOrdersPage() {
         { event: "*", schema: "public", table: "orders" },
         (payload) => {
           void queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
-          if (payload.eventType === "INSERT") playNewOrderSound();
+
+          const next = (payload.new ?? {}) as { payment_method?: string; payment_status?: string };
+          const previous = (payload.old ?? {}) as { payment_method?: string; payment_status?: string };
+
+          if (payload.eventType === "INSERT" && next.payment_method !== "online") {
+            playNewOrderSound();
+            return;
+          }
+
+          if (
+            payload.eventType === "UPDATE" &&
+            next.payment_method === "online" &&
+            confirmedStatuses.has(next.payment_status ?? "") &&
+            !confirmedStatuses.has(previous.payment_status ?? "")
+          ) {
+            playNewOrderSound();
+          }
         },
       )
       .subscribe((status) => {
@@ -160,8 +174,13 @@ function StaffOrdersPage() {
     try {
       await updateOrderStatus(orderId, next);
       await queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
-    } catch {
-      setActionError("تعذّر تحديث حالة الطلب");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setActionError(
+        message.includes("payment_not_confirmed")
+          ? "لا يمكن قبول الطلب قبل تأكيد الدفع الإلكتروني."
+          : "تعذّر تحديث حالة الطلب",
+      );
     } finally {
       setPendingId(null);
     }
@@ -180,20 +199,14 @@ function StaffOrdersPage() {
                   : "border-border text-muted-foreground"
               }`}
             >
-              {realtimeConnected ? (
-                <Wifi aria-hidden className="size-3" />
-              ) : (
-                <WifiOff aria-hidden className="size-3" />
-              )}
+              {realtimeConnected ? <Wifi aria-hidden className="size-3" /> : <WifiOff aria-hidden className="size-3" />}
               {realtimeConnected ? "مباشر" : "تحديث تلقائي"}
             </span>
             <button
               type="button"
               onClick={enableSound}
               className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-bold ${
-                soundEnabled
-                  ? "border-brand/30 bg-brand/10 text-brand"
-                  : "border-border text-muted-foreground"
+                soundEnabled ? "border-brand/30 bg-brand/10 text-brand" : "border-border text-muted-foreground"
               }`}
             >
               <Volume2 aria-hidden className="size-3" />
@@ -208,9 +221,7 @@ function StaffOrdersPage() {
               type="button"
               onClick={() => setTab(t.key)}
               className={`shrink-0 rounded-pill px-4 py-2 text-sm font-bold ${
-                t.key === tab
-                  ? "bg-brand text-brand-ink"
-                  : "border border-border text-muted-foreground"
+                t.key === tab ? "bg-brand text-brand-ink" : "border border-border text-muted-foreground"
               }`}
             >
               {t.label}
@@ -228,14 +239,10 @@ function StaffOrdersPage() {
 
         {isLoading ? (
           <div className="grid gap-3">
-            {[0, 1].map((i) => (
-              <div key={i} className="card-surface h-28 animate-pulse opacity-60" />
-            ))}
+            {[0, 1].map((i) => <div key={i} className="card-surface h-28 animate-pulse opacity-60" />)}
           </div>
         ) : grouped.length === 0 ? (
-          <p className="py-16 text-center text-sm text-muted-foreground">
-            لا توجد طلبات في هذه القائمة حالياً
-          </p>
+          <p className="py-16 text-center text-sm text-muted-foreground">لا توجد طلبات في هذه القائمة حالياً</p>
         ) : (
           <div className="grid gap-3">
             {grouped.map((order) => {
@@ -246,9 +253,7 @@ function StaffOrdersPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-sm font-bold">{order.customers?.name ?? "عميل"}</span>
-                      <span dir="ltr" className="ms-2 text-xs text-muted-foreground">
-                        {order.customers?.phone}
-                      </span>
+                      <span dir="ltr" className="ms-2 text-xs text-muted-foreground">{order.customers?.phone}</span>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span className="chip">{ORDER_TYPE_LABEL[order.order_type]}</span>
                         <span className="chip">{STATUS_LABEL[order.status]}</span>
@@ -264,31 +269,17 @@ function StaffOrdersPage() {
                     {order.order_items.map((item) => (
                       <li key={item.id} className="flex flex-col gap-0.5 py-1.5">
                         <div className="flex items-center justify-between">
-                          <span>
-                            {item.qty}× {item.name_ar}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {formatSAR(item.line_total)}
-                          </span>
+                          <span>{item.qty}× {item.name_ar}</span>
+                          <span className="text-muted-foreground">{formatSAR(item.line_total)}</span>
                         </div>
                         {item.order_item_modifiers.length > 0 ? (
-                          <span className="text-xs text-muted-foreground">
-                            {item.order_item_modifiers.map((m) => m.name_ar).join("، ")}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{item.order_item_modifiers.map((m) => m.name_ar).join("، ")}</span>
                         ) : null}
-                        {item.notes ? (
-                          <span className="text-xs text-muted-foreground">
-                            ملاحظة: {item.notes}
-                          </span>
-                        ) : null}
+                        {item.notes ? <span className="text-xs text-muted-foreground">ملاحظة: {item.notes}</span> : null}
                       </li>
                     ))}
                   </ul>
-                  {order.notes ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      ملاحظات الطلب: {order.notes}
-                    </p>
-                  ) : null}
+                  {order.notes ? <p className="mt-2 text-xs text-muted-foreground">ملاحظات الطلب: {order.notes}</p> : null}
 
                   <div className="mt-3 flex gap-2">
                     {action ? (

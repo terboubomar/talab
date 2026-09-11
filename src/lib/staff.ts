@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import type { PaymentStatus } from "@/lib/payments";
 
 export type OrderStatus =
   "pending" | "accepted" | "preparing" | "ready" | "out_for_delivery" | "completed" | "cancelled";
@@ -41,6 +42,9 @@ export type StaffOrder = {
   subtotal: number;
   deposit_total: number;
   total: number;
+  payment_method: "cash" | "online";
+  payment_status: PaymentStatus;
+  paid_at: string | null;
   placed_at: string;
   customers: { name: string; phone: string } | null;
   order_items: StaffOrderItem[];
@@ -78,7 +82,7 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
     .order("placed_at", { ascending: true });

@@ -2,12 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Minus, Plus, Trash2, ImageOff, CheckCircle2, Banknote, CreditCard } from "lucide-react";
 
-import { readSelection, type Selection } from "@/lib/storefront";
+import {
+  fetchStorefrontPaymentOption,
+  readSelection,
+  submitOrder,
+  type CheckoutPaymentMethod,
+  type Selection,
+  type StorefrontPaymentOption,
+} from "@/lib/storefront";
 import { readCart, saveCart, clearCart } from "@/lib/cart";
 import { cartCount, cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
-import { submitOrder } from "@/lib/storefront";
 import { saveAddress } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
+import { MoyasarPaymentForm } from "@/components/moyasar-payment-form";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -66,13 +73,20 @@ function CheckoutContent({
   cart: CartLine[];
   setCart: React.Dispatch<React.SetStateAction<CartLine[]>>;
 }) {
-  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("cash");
+  const [paymentOption, setPaymentOption] = useState<StorefrontPaymentOption | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ orderId: string; total: number } | null>(null);
+  const [result, setResult] = useState<{
+    orderId: string;
+    total: number;
+    paymentMethod: CheckoutPaymentMethod;
+    paymentOption: StorefrontPaymentOption | null;
+  } | null>(null);
 
   useEffect(() => {
     if (selection.delivery?.phone) setPhone(selection.delivery.phone);
@@ -85,8 +99,24 @@ function CheckoutContent({
       if (typeof meta?.["phone"] === "string") setPhone(meta["phone"] as string);
       else if (user.phone) setPhone(user.phone);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selection.delivery?.phone]);
+
+  useEffect(() => {
+    let active = true;
+    setPaymentLoading(true);
+    fetchStorefrontPaymentOption(selection.branchId)
+      .then((option) => {
+        if (!active) return;
+        setPaymentOption(option);
+        if (!option) setPaymentMethod("cash");
+      })
+      .finally(() => {
+        if (active) setPaymentLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selection.branchId]);
 
   const estimatedDeliveryFee = useMemo(() => {
     if (!selection.delivery) return 0;
@@ -98,8 +128,13 @@ function CheckoutContent({
   const subtotal = cartTotal(cart);
 
   const canSubmit = useMemo(
-    () => name.trim().length > 0 && phone.trim().length >= 9 && cart.length > 0 && !submitting,
-    [name, phone, cart, submitting],
+    () =>
+      name.trim().length > 0 &&
+      phone.trim().length >= 9 &&
+      cart.length > 0 &&
+      !submitting &&
+      (paymentMethod === "cash" || Boolean(paymentOption)),
+    [name, phone, cart, submitting, paymentMethod, paymentOption],
   );
 
   function updateQty(key: string, delta: number) {
@@ -128,6 +163,7 @@ function CheckoutContent({
         customerName: name.trim(),
         customerPhone: phone.trim(),
         notes: notes.trim() || null,
+        paymentMethod,
         items: cart.map((line) => ({
           product_id: line.productId,
           qty: line.quantity,
@@ -150,7 +186,8 @@ function CheckoutContent({
             }
           : {}),
       });
-      clearCart();
+
+      if (paymentMethod === "cash") clearCart();
       if (d?.saveForNextTime) {
         saveAddress({
           customerName: name.trim(),
@@ -168,23 +205,55 @@ function CheckoutContent({
           /* saving the address is a convenience, never block on it */
         });
       }
-      setResult({ orderId: order_id, total });
+
+      setResult({
+        orderId: order_id,
+        total,
+        paymentMethod,
+        paymentOption: paymentMethod === "online" ? paymentOption : null,
+      });
     } catch (e) {
       const message = e instanceof Error ? e.message : "حدث خطأ غير متوقع";
       setError(
-        message === "order_type_not_available"
+        message.includes("order_type_not_available")
           ? "طريقة الطلب هذه غير متاحة لهذا الفرع حالياً"
-          : message === "invalid_product"
+          : message.includes("invalid_product")
             ? "أحد الأصناف لم يعد متوفراً، الرجاء مراجعة السلة"
-            : message === "qty_below_minimum" || message === "qty_above_maximum"
+            : message.includes("qty_below_minimum") || message.includes("qty_above_maximum")
               ? "الكمية المطلوبة لأحد الأصناف غير صحيحة"
-              : message === "missing_delivery_area" || message === "invalid_delivery_area"
+              : message.includes("missing_delivery_area") || message.includes("invalid_delivery_area")
                 ? "الرجاء اختيار عنوان توصيل صالح"
-                : "تعذّر إتمام الطلب، حاول مرة أخرى",
+                : message.includes("online_payment_not_available")
+                  ? "الدفع الإلكتروني غير متاح لهذا الفرع حالياً. اختر الدفع عند الاستلام."
+                  : "تعذّر إتمام الطلب، حاول مرة أخرى",
       );
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (result?.paymentMethod === "online" && result.paymentOption) {
+    return (
+      <main className="flex min-h-screen justify-center bg-secondary px-5 py-10">
+        <div className="w-full max-w-lg">
+          <div className="card-surface mb-4 p-5 text-center">
+            <p className="text-xs font-bold text-muted-foreground">رقم الطلب</p>
+            <p dir="ltr" className="mt-1 text-lg font-extrabold">#{result.orderId.slice(0, 8)}</p>
+            <p className="mt-2 text-xs leading-6 text-muted-foreground">
+              أكمل الدفع أدناه. الطلب الإلكتروني لن ينتقل إلى المطبخ قبل تأكيد ميسر على الخادم.
+            </p>
+          </div>
+          <div className="card-surface p-5">
+            <MoyasarPaymentForm
+              orderId={result.orderId}
+              total={result.total}
+              branchName={selection.branchNameAr}
+              option={result.paymentOption}
+            />
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (result) {
@@ -195,16 +264,11 @@ function CheckoutContent({
           <h1 className="mt-4 text-lg font-extrabold">تم استلام طلبك</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             رقم الطلب{" "}
-            <span dir="ltr" className="font-bold text-foreground">
-              #{result.orderId.slice(0, 8)}
-            </span>
+            <span dir="ltr" className="font-bold text-foreground">#{result.orderId.slice(0, 8)}</span>
           </p>
           <p className="mt-1 text-2xl font-extrabold text-brand">{formatSAR(result.total)}</p>
           <p className="mt-2 text-xs text-muted-foreground">طريقة الدفع: الدفع عند الاستلام</p>
-          <Link
-            to="/"
-            className="mt-6 inline-block w-full rounded-pill bg-brand px-5 py-3 text-sm font-bold text-brand-ink"
-          >
+          <Link to="/" className="mt-6 inline-block w-full rounded-pill bg-brand px-5 py-3 text-sm font-bold text-brand-ink">
             العودة للرئيسية
           </Link>
         </div>
@@ -217,9 +281,7 @@ function CheckoutContent({
       <header className="sticky top-0 z-30 border-b border-border bg-background px-5 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <h1 className="text-base font-extrabold">السلة والدفع</h1>
-          <Link to="/menu" className="text-sm font-bold text-brand">
-            متابعة التسوق
-          </Link>
+          <Link to="/menu" className="text-sm font-bold text-brand">متابعة التسوق</Link>
         </div>
       </header>
 
@@ -231,52 +293,23 @@ function CheckoutContent({
                 {line.image ? (
                   <img src={line.image} alt={line.nameAr} className="size-full object-cover" />
                 ) : (
-                  <span className="flex size-full items-center justify-center text-muted-foreground">
-                    <ImageOff aria-hidden className="size-5" />
-                  </span>
+                  <span className="flex size-full items-center justify-center text-muted-foreground"><ImageOff aria-hidden className="size-5" /></span>
                 )}
               </span>
               <div className="flex flex-1 flex-col gap-1">
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-sm font-bold">{line.nameAr}</span>
-                  <button
-                    type="button"
-                    aria-label="حذف من السلة"
-                    onClick={() => removeLine(line.key)}
-                    className="text-muted-foreground"
-                  >
+                  <button type="button" aria-label="حذف من السلة" onClick={() => removeLine(line.key)} className="text-muted-foreground">
                     <Trash2 aria-hidden className="size-4" />
                   </button>
                 </div>
-                {line.optionNames.length > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    {line.optionNames.join("، ")}
-                  </span>
-                ) : null}
-                {line.note ? (
-                  <span className="text-xs text-muted-foreground">ملاحظة: {line.note}</span>
-                ) : null}
+                {line.optionNames.length > 0 ? <span className="text-xs text-muted-foreground">{line.optionNames.join("، ")}</span> : null}
+                {line.note ? <span className="text-xs text-muted-foreground">ملاحظة: {line.note}</span> : null}
                 <div className="mt-1 flex items-center justify-between">
                   <div className="flex items-center gap-3 rounded-pill border border-border px-2 py-1">
-                    <button
-                      type="button"
-                      aria-label="تقليل"
-                      onClick={() => updateQty(line.key, -1)}
-                      className="grid size-6 place-items-center"
-                    >
-                      <Minus aria-hidden className="size-3.5" />
-                    </button>
-                    <span className="min-w-4 text-center text-xs font-bold" dir="ltr">
-                      {line.quantity}
-                    </span>
-                    <button
-                      type="button"
-                      aria-label="زيادة"
-                      onClick={() => updateQty(line.key, 1)}
-                      className="grid size-6 place-items-center"
-                    >
-                      <Plus aria-hidden className="size-3.5" />
-                    </button>
+                    <button type="button" aria-label="تقليل" onClick={() => updateQty(line.key, -1)} className="grid size-6 place-items-center"><Minus aria-hidden className="size-3.5" /></button>
+                    <span className="min-w-4 text-center text-xs font-bold" dir="ltr">{line.quantity}</span>
+                    <button type="button" aria-label="زيادة" onClick={() => updateQty(line.key, 1)} className="grid size-6 place-items-center"><Plus aria-hidden className="size-3.5" /></button>
                   </div>
                   <span className="text-sm font-bold text-brand">{formatSAR(lineTotal(line))}</span>
                 </div>
@@ -286,55 +319,27 @@ function CheckoutContent({
         </section>
 
         <section className="card-surface mt-4 p-4">
-          <label htmlFor="order-notes" className="text-sm font-bold">
-            ملاحظات على الطلب
-          </label>
-          <textarea
-            id="order-notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            placeholder="مثال: اترك الطلب عند الاستقبال"
-            className="mt-2 w-full rounded-card border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand"
-          />
+          <label htmlFor="order-notes" className="text-sm font-bold">ملاحظات على الطلب</label>
+          <textarea id="order-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="مثال: اترك الطلب عند الاستقبال" className="mt-2 w-full rounded-card border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand" />
         </section>
 
         <section className="card-surface mt-4 p-4">
           <h2 className="text-sm font-bold">بيانات التواصل</h2>
           <div className="mt-3 grid gap-3">
             <div>
-              <label htmlFor="customer-name" className="text-xs font-bold text-muted-foreground">
-                الاسم
-              </label>
-              <input
-                id="customer-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="الاسم الكامل"
-                className="mt-1 w-full rounded-card border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand"
-              />
+              <label htmlFor="customer-name" className="text-xs font-bold text-muted-foreground">الاسم</label>
+              <input id="customer-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="الاسم الكامل" className="mt-1 w-full rounded-card border border-border bg-background px-4 py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand" />
             </div>
             <div>
-              <label htmlFor="customer-phone" className="text-xs font-bold text-muted-foreground">
-                رقم الجوال
-              </label>
-              <input
-                id="customer-phone"
-                dir="ltr"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="05xxxxxxxx"
-                className="mt-1 w-full rounded-card border border-border bg-background px-4 py-3 text-end text-sm outline-none placeholder:text-muted-foreground focus:border-brand"
-              />
+              <label htmlFor="customer-phone" className="text-xs font-bold text-muted-foreground">رقم الجوال</label>
+              <input id="customer-phone" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="05xxxxxxxx" className="mt-1 w-full rounded-card border border-border bg-background px-4 py-3 text-end text-sm outline-none placeholder:text-muted-foreground focus:border-brand" />
             </div>
           </div>
         </section>
 
         {selection.delivery ? (
           <section className="card-surface mt-4 p-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-bold">التوصيل إلى {selection.delivery.areaNameAr}</span>
-            </div>
+            <div className="flex items-center justify-between text-sm"><span className="font-bold">التوصيل إلى {selection.delivery.areaNameAr}</span></div>
             <p className="mt-1 text-xs text-muted-foreground">
               {selection.delivery.street}
               {selection.delivery.unitNo ? `، مبنى ${selection.delivery.unitNo}` : ""}
@@ -346,61 +351,42 @@ function CheckoutContent({
         <section className="card-surface mt-4 p-4">
           <h2 className="text-sm font-extrabold">طريقة الدفع</h2>
           <div className="mt-3 grid gap-2">
-            <div className="flex items-center gap-3 rounded-card border border-brand bg-brand/5 p-3">
-              <span className="grid size-9 place-items-center rounded-full bg-brand/10 text-brand">
-                <Banknote aria-hidden className="size-5" />
-              </span>
-              <div className="flex-1">
-                <p className="text-sm font-bold">الدفع عند الاستلام</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">متاح الآن</p>
-              </div>
-              <span className="size-4 rounded-full border-4 border-brand" aria-label="محدد" />
-            </div>
-            <div className="flex cursor-not-allowed items-center gap-3 rounded-card border border-border p-3 opacity-55" aria-disabled="true">
-              <span className="grid size-9 place-items-center rounded-full bg-secondary text-muted-foreground">
-                <CreditCard aria-hidden className="size-5" />
-              </span>
+            <button type="button" onClick={() => setPaymentMethod("cash")} className={`flex items-center gap-3 rounded-card border p-3 text-start ${paymentMethod === "cash" ? "border-brand bg-brand/5" : "border-border"}`}>
+              <span className={`grid size-9 place-items-center rounded-full ${paymentMethod === "cash" ? "bg-brand/10 text-brand" : "bg-secondary text-muted-foreground"}`}><Banknote aria-hidden className="size-5" /></span>
+              <div className="flex-1"><p className="text-sm font-bold">الدفع عند الاستلام</p><p className="mt-0.5 text-xs text-muted-foreground">متاح الآن</p></div>
+              <span className={`size-4 rounded-full border ${paymentMethod === "cash" ? "border-4 border-brand" : "border-border"}`} aria-label={paymentMethod === "cash" ? "محدد" : undefined} />
+            </button>
+
+            <button type="button" disabled={!paymentOption || paymentLoading} onClick={() => paymentOption && setPaymentMethod("online")} className={`flex items-center gap-3 rounded-card border p-3 text-start disabled:cursor-not-allowed disabled:opacity-55 ${paymentMethod === "online" ? "border-brand bg-brand/5" : "border-border"}`}>
+              <span className={`grid size-9 place-items-center rounded-full ${paymentMethod === "online" ? "bg-brand/10 text-brand" : "bg-secondary text-muted-foreground"}`}><CreditCard aria-hidden className="size-5" /></span>
               <div className="flex-1">
                 <p className="text-sm font-bold">الدفع الإلكتروني</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">سيُفعّل بعد ربط مزود الدفع</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {paymentLoading ? "جاري التحقق..." : paymentOption ? `ميسر · ${paymentOption.environment === "test" ? "اختبار" : "إنتاج"}` : "غير مفعّل لهذا الفرع"}
+                </p>
               </div>
-              <span className="rounded-pill bg-secondary px-2.5 py-1 text-[10px] font-bold text-muted-foreground">قريباً</span>
-            </div>
+              {paymentOption ? (
+                <span className={`size-4 rounded-full border ${paymentMethod === "online" ? "border-4 border-brand" : "border-border"}`} aria-label={paymentMethod === "online" ? "محدد" : undefined} />
+              ) : (
+                <span className="rounded-pill bg-secondary px-2.5 py-1 text-[10px] font-bold text-muted-foreground">غير متاح</span>
+              )}
+            </button>
           </div>
         </section>
 
         <section className="card-surface mt-4 p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{count} أصناف</span>
-            <span className="font-bold">{formatSAR(subtotal)}</span>
-          </div>
-          {selection.delivery ? (
-            <div className="mt-1 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">رسوم التوصيل</span>
-              <span className="font-bold">{formatSAR(estimatedDeliveryFee)}</span>
-            </div>
-          ) : null}
+          <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">{count} أصناف</span><span className="font-bold">{formatSAR(subtotal)}</span></div>
+          {selection.delivery ? <div className="mt-1 flex items-center justify-between text-sm"><span className="text-muted-foreground">رسوم التوصيل</span><span className="font-bold">{formatSAR(estimatedDeliveryFee)}</span></div> : null}
           <p className="mt-1 text-xs text-muted-foreground">الأسعار شاملة ضريبة القيمة المضافة</p>
         </section>
 
-        {error ? (
-          <div className="mt-4 rounded-card border border-danger/30 bg-danger/10 p-3 text-center text-sm font-bold text-danger">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="mt-4 rounded-card border border-danger/30 bg-danger/10 p-3 text-center text-sm font-bold text-danger">{error}</div> : null}
       </div>
 
       <div className="fixed start-0 end-0 bottom-0 z-30 border-t border-border bg-background px-5 py-3">
         <div className="mx-auto max-w-2xl">
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="w-full rounded-pill bg-brand px-5 py-3.5 text-sm font-bold text-brand-ink disabled:opacity-50"
-          >
-            {submitting
-              ? "جارٍ إرسال الطلب..."
-              : `تأكيد الطلب · ${formatSAR(subtotal + estimatedDeliveryFee)}`}
+          <button type="button" disabled={!canSubmit} onClick={handleSubmit} className="w-full rounded-pill bg-brand px-5 py-3.5 text-sm font-bold text-brand-ink disabled:opacity-50">
+            {submitting ? "جارٍ إرسال الطلب..." : paymentMethod === "online" ? `المتابعة للدفع · ${formatSAR(subtotal + estimatedDeliveryFee)}` : `تأكيد الطلب · ${formatSAR(subtotal + estimatedDeliveryFee)}`}
           </button>
         </div>
       </div>

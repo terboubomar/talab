@@ -96,6 +96,31 @@ export async function quoteCoupon(input: {
   return data as unknown as CouponQuote;
 }
 
+export async function quoteBestAutoCoupon(input: {
+  branchId: string;
+  orderType: OrderType;
+  customerPhone: string;
+  items: PlaceOrderItem[];
+  cartId: string;
+  areaId?: string;
+}): Promise<CouponQuote | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("storefront_coupon_auto_quote", {
+    p_branch_id: input.branchId,
+    p_order_type: input.orderType,
+    p_customer_phone: input.customerPhone,
+    p_items: input.items,
+    p_cart_id: input.cartId,
+    p_area_id: input.areaId ?? null,
+    p_source: "web",
+  });
+  if (error) throw error;
+  if (!data) return null;
+  return data as unknown as CouponQuote;
+}
+
+
+
 export async function fetchCoupons(): Promise<Coupon[]> {
   if (!supabase) return [];
   const [{ data: coupons, error: couponError }, { data: scopes, error: scopeError }] = await Promise.all([

@@ -23,7 +23,9 @@ export type CouponQuote = {
   expires_at: string;
   success_msg_ar: string | null;
   success_msg_en: string | null;
+  auto_applied?: boolean;
 };
+
 
 export type Coupon = {
   id: string;

@@ -28,6 +28,8 @@ type EditorState = {
   value: string;
   maxDiscount: string;
   freeDelivery: boolean;
+  autoApply: boolean;
+
   minPurchase: string;
   startsAt: string;
   endsAt: string;

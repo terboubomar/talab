@@ -17,6 +17,7 @@ import { Route as MenuRouteImport } from './routes/menu'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
 import { Route as StaffShellAdminOrdersRouteImport } from './routes/_staffShell.admin.orders'
+import { Route as StaffShellAdminProductsRouteImport } from './routes/_staffShell.admin.products'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -57,6 +58,11 @@ const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({
   path: '/admin/orders',
   getParentRoute: () => StaffShellRoute,
 } as any)
+const StaffShellAdminProductsRoute = StaffShellAdminProductsRouteImport.update({
+  id: '/admin/products',
+  path: '/admin/products',
+  getParentRoute: () => StaffShellRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin/products': typeof StaffShellAdminProductsRoute
   '/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin/products': typeof StaffShellAdminProductsRoute
   '/admin': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesById {
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/menu': typeof MenuRoute
   '/admin/login': typeof AdminLoginRoute
   '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/_staffShell/admin/products': typeof StaffShellAdminProductsRoute
   '/_staffShell/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/admin/login'
     | '/admin/orders'
+    | '/admin/products'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/admin/login'
     | '/admin/orders'
+    | '/admin/products'
     | '/admin'
   id:
     | '__root__'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '/menu'
     | '/admin/login'
     | '/_staffShell/admin/orders'
+    | '/_staffShell/admin/products'
     | '/_staffShell/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -185,16 +197,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminOrdersRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/products': {
+      id: '/_staffShell/admin/products'
+      path: '/admin/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof StaffShellAdminProductsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
   }
 }
 
 interface StaffShellRouteChildren {
   StaffShellAdminOrdersRoute: typeof StaffShellAdminOrdersRoute
+  StaffShellAdminProductsRoute: typeof StaffShellAdminProductsRoute
   StaffShellAdminIndexRoute: typeof StaffShellAdminIndexRoute
 }
 
 const StaffShellRouteChildren: StaffShellRouteChildren = {
   StaffShellAdminOrdersRoute: StaffShellAdminOrdersRoute,
+  StaffShellAdminProductsRoute: StaffShellAdminProductsRoute,
   StaffShellAdminIndexRoute: StaffShellAdminIndexRoute,
 }
 

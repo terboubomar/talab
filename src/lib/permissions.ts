@@ -5,6 +5,7 @@ export type PermissionState = {
   loading: boolean;
   signedIn: boolean;
   staffName: string | null;
+  tenantId: string | null;
   isPlatformAdmin: boolean;
   can: (key: string) => boolean;
 };
@@ -18,11 +19,13 @@ async function fetchMyPermissions() {
   if (error) throw error;
   const rows = (data ?? []) as {
     staff_name: string;
+    tenant_id: string;
     is_platform_admin: boolean;
     permission_key: string;
   }[];
   return {
     staffName: rows[0]?.staff_name ?? null,
+    tenantId: rows[0]?.tenant_id ?? null,
     isPlatformAdmin: rows[0]?.is_platform_admin ?? false,
     keys: new Set(rows.map((r) => r.permission_key)),
   };
@@ -33,6 +36,7 @@ export function usePermissions(): PermissionState {
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
   const [staffName, setStaffName] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [keys, setKeys] = useState<Set<string>>(new Set());
 
@@ -46,6 +50,7 @@ export function usePermissions(): PermissionState {
         } else {
           setSignedIn(true);
           setStaffName(result.staffName);
+          setTenantId(result.tenantId);
           setIsPlatformAdmin(result.isPlatformAdmin);
           setKeys(result.keys);
         }
@@ -65,5 +70,5 @@ export function usePermissions(): PermissionState {
     return isPlatformAdmin || keys.has(key);
   }
 
-  return { loading, signedIn, staffName, isPlatformAdmin, can };
+  return { loading, signedIn, staffName, tenantId, isPlatformAdmin, can };
 }

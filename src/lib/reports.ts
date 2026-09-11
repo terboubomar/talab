@@ -5,6 +5,11 @@ export type ReportSummary = {
   completed_orders: number;
   cancelled_orders: number;
   gross_sales: number;
+  refunds: number;
+  order_refunds: number;
+  deposit_refunds: number;
+  refund_count: number;
+  net_sales: number;
   subtotal: number;
   tax_total: number;
   delivery_fees: number;
@@ -18,6 +23,8 @@ export type DailyReportRow = {
   orders: number;
   completed_orders: number;
   sales: number;
+  refunds: number;
+  net_sales: number;
 };
 
 export type StatusReportRow = { status: string; orders: number };
@@ -26,6 +33,8 @@ export type TypeReportRow = {
   orders: number;
   completed_orders: number;
   sales: number;
+  refunds: number;
+  net_sales: number;
 };
 export type BranchReportRow = {
   branch_id: string;
@@ -33,6 +42,8 @@ export type BranchReportRow = {
   orders: number;
   completed_orders: number;
   sales: number;
+  refunds: number;
+  net_sales: number;
 };
 export type ReportBranch = { id: string; name: string };
 

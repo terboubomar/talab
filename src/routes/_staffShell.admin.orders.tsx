@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import {
   fetchStaffOrders,
-  getStaffSession,
-  staffSignOut,
   updateOrderStatus,
   ORDER_TYPE_LABEL,
   STATUS_LABEL,
@@ -15,7 +13,7 @@ import {
 } from "@/lib/staff";
 import { formatSAR } from "@/lib/menu";
 
-export const Route = createFileRoute("/staff/orders")({
+export const Route = createFileRoute("/_staffShell/admin/orders")({
   head: () => ({
     meta: [{ title: "طلبات الفرع — طلب" }],
   }),
@@ -54,29 +52,16 @@ function canCancel(order: StaffOrder) {
 }
 
 function StaffOrdersPage() {
-  const navigate = useNavigate();
-  const [checked, setChecked] = useState(false);
   const [tab, setTab] = useState(DEFAULT_TAB.key);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    getStaffSession().then((session) => {
-      if (!session) {
-        navigate({ to: "/staff/login", replace: true });
-        return;
-      }
-      setChecked(true);
-    });
-  }, [navigate]);
 
   const activeTab = TABS.find((t) => t.key === tab) ?? DEFAULT_TAB;
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ["staff_orders", activeTab.statuses],
     queryFn: () => fetchStaffOrders(activeTab.statuses),
-    enabled: checked,
     refetchInterval: 12_000,
   });
 
@@ -95,36 +80,11 @@ function StaffOrdersPage() {
     }
   }
 
-  async function handleSignOut() {
-    await staffSignOut();
-    navigate({ to: "/staff/login" });
-  }
-
-  if (!checked) {
-    return (
-      <main className="min-h-screen bg-secondary px-5 py-10">
-        <div className="mx-auto max-w-3xl">
-          <div className="card-surface h-24 animate-pulse opacity-60" />
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-secondary pb-10">
-      <header className="sticky top-0 z-30 border-b border-border bg-background px-5 py-4">
-        <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 className="text-base font-extrabold">طلبات الفرع</h1>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 text-sm font-bold text-muted-foreground"
-          >
-            <LogOut aria-hidden className="size-4" />
-            خروج
-          </button>
-        </div>
-        <nav className="mx-auto mt-3 flex max-w-3xl gap-2 overflow-x-auto">
+    <main className="min-h-screen pb-10">
+      <header className="sticky top-0 z-20 border-b border-border bg-background px-5 py-4">
+        <h1 className="text-base font-extrabold">طلبات الفرع</h1>
+        <nav className="mt-3 flex gap-2 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -142,7 +102,7 @@ function StaffOrdersPage() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-3xl px-5 py-6">
+      <div className="px-5 py-6">
         {actionError ? (
           <div className="mb-4 rounded-card border border-danger/30 bg-danger/10 p-3 text-center text-sm font-bold text-danger">
             {actionError}

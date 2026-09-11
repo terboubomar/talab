@@ -44,12 +44,6 @@ export type StaffOrder = {
   order_items: StaffOrderItem[];
 };
 
-export async function getStaffSession() {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session;
-}
-
 export async function staffSignIn(email: string, password: string) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { error } = await supabase.auth.signInWithPassword({ email, password });

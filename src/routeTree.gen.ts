@@ -10,14 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StaffShellRouteImport } from './routes/_staffShell'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as MenuRouteImport } from './routes/menu'
-import { Route as StaffLoginRouteImport } from './routes/staff.login'
-import { Route as StaffOrdersRouteImport } from './routes/staff.orders'
+import { Route as AdminLoginRouteImport } from './routes/admin.login'
+import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
+import { Route as StaffShellAdminOrdersRouteImport } from './routes/_staffShell.admin.orders'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StaffShellRoute = StaffShellRouteImport.update({
+  id: '/_staffShell',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -30,54 +36,71 @@ const MenuRoute = MenuRouteImport.update({
   path: '/menu',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StaffLoginRoute = StaffLoginRouteImport.update({
-  id: '/staff/login',
-  path: '/staff/login',
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StaffOrdersRoute = StaffOrdersRouteImport.update({
-  id: '/staff/orders',
-  path: '/staff/orders',
-  getParentRoute: () => rootRouteImport,
+const StaffShellAdminIndexRoute = StaffShellAdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => StaffShellRoute,
+} as any)
+const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({
+  id: '/admin/orders',
+  path: '/admin/orders',
+  getParentRoute: () => StaffShellRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/menu': typeof MenuRoute
-  '/staff/login': typeof StaffLoginRoute
-  '/staff/orders': typeof StaffOrdersRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/checkout': typeof CheckoutRoute
   '/menu': typeof MenuRoute
-  '/staff/login': typeof StaffLoginRoute
-  '/staff/orders': typeof StaffOrdersRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/admin': typeof StaffShellAdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_staffShell': typeof StaffShellRouteWithChildren
   '/checkout': typeof CheckoutRoute
   '/menu': typeof MenuRoute
-  '/staff/login': typeof StaffLoginRoute
-  '/staff/orders': typeof StaffOrdersRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
+  '/_staffShell/admin/': typeof StaffShellAdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/checkout' | '/menu' | '/staff/login' | '/staff/orders'
+  fullPaths:
+    '/' | '/checkout' | '/menu' | '/admin/login' | '/admin/orders' | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/checkout' | '/menu' | '/staff/login' | '/staff/orders'
+  to: '/' | '/checkout' | '/menu' | '/admin/login' | '/admin/orders' | '/admin'
   id:
-    '__root__' | '/' | '/checkout' | '/menu' | '/staff/login' | '/staff/orders'
+    | '__root__'
+    | '/'
+    | '/_staffShell'
+    | '/checkout'
+    | '/menu'
+    | '/admin/login'
+    | '/_staffShell/admin/orders'
+    | '/_staffShell/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  StaffShellRoute: typeof StaffShellRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
   MenuRoute: typeof MenuRoute
-  StaffLoginRoute: typeof StaffLoginRoute
-  StaffOrdersRoute: typeof StaffOrdersRoute
+  AdminLoginRoute: typeof AdminLoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -87,6 +110,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_staffShell': {
+      id: '/_staffShell'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof StaffShellRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -103,29 +133,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MenuRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/staff/login': {
-      id: '/staff/login'
-      path: '/staff/login'
-      fullPath: '/staff/login'
-      preLoaderRoute: typeof StaffLoginRouteImport
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/staff/orders': {
-      id: '/staff/orders'
-      path: '/staff/orders'
-      fullPath: '/staff/orders'
-      preLoaderRoute: typeof StaffOrdersRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_staffShell/admin/': {
+      id: '/_staffShell/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof StaffShellAdminIndexRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
+    '/_staffShell/admin/orders': {
+      id: '/_staffShell/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof StaffShellAdminOrdersRouteImport
+      parentRoute: typeof StaffShellRoute
     }
   }
 }
 
+interface StaffShellRouteChildren {
+  StaffShellAdminOrdersRoute: typeof StaffShellAdminOrdersRoute
+  StaffShellAdminIndexRoute: typeof StaffShellAdminIndexRoute
+}
+
+const StaffShellRouteChildren: StaffShellRouteChildren = {
+  StaffShellAdminOrdersRoute: StaffShellAdminOrdersRoute,
+  StaffShellAdminIndexRoute: StaffShellAdminIndexRoute,
+}
+
+const StaffShellRouteWithChildren = StaffShellRoute._addFileChildren(
+  StaffShellRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  StaffShellRoute: StaffShellRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
   MenuRoute: MenuRoute,
-  StaffLoginRoute: StaffLoginRoute,
-  StaffOrdersRoute: StaffOrdersRoute,
+  AdminLoginRoute: AdminLoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { staffSignIn } from "@/lib/staff";
 
-export const Route = createFileRoute("/staff/login")({
+export const Route = createFileRoute("/admin/login")({
   head: () => ({
     meta: [{ title: "دخول الموظفين — طلب" }],
   }),
@@ -23,7 +23,7 @@ function StaffLoginPage() {
     setError(null);
     try {
       await staffSignIn(email.trim(), password);
-      navigate({ to: "/staff/orders" });
+      navigate({ to: "/admin/orders" });
     } catch {
       setError("بيانات الدخول غير صحيحة");
     } finally {

@@ -52,6 +52,8 @@ const EMPTY: EditorState = {
   value: "10",
   maxDiscount: "",
   freeDelivery: false,
+  autoApply: false,
+
   minPurchase: "0",
   startsAt: "",
   endsAt: "",

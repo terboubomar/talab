@@ -76,6 +76,7 @@ export type CartLine = {
   quantity: number;
   unitPrice: number;
   optionNames: string[];
+  modifierIds: string[];
   note: string;
 };
 

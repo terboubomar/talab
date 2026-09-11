@@ -43,17 +43,16 @@ export const branchesQuery = queryOptions({
 });
 
 export const brandQuery = queryOptions({
-  queryKey: ["brand", TENANT_SLUG],
+  queryKey: ["storefront_brand", TENANT_SLUG],
   queryFn: async (): Promise<Brand | null> => {
     if (!supabase) return null;
-    const { data, error } = await supabase
-      .from("brands")
-      .select("name_ar, logo_url, theme")
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("storefront_brand", {
+      p_tenant_slug: TENANT_SLUG,
+    });
     // The brand row is decorative here — never block the page on it.
     if (error) return null;
-    return (data ?? null) as Brand | null;
+    const row = Array.isArray(data) ? data[0] : data;
+    return (row ?? null) as Brand | null;
   },
   enabled: Boolean(supabase),
   retry: false,
@@ -86,4 +85,40 @@ export function readSelection(): Selection | null {
 
 export function branchKey(branch: Branch, index: number) {
   return branch.branch_id ?? branch.id ?? `${branch.name_ar}-${index}`;
+}
+
+export type PlaceOrderItem = {
+  product_id: string;
+  qty: number;
+  modifier_ids?: string[];
+  note?: string;
+};
+
+export type PlaceOrderResult = {
+  order_id: string;
+  total: number;
+};
+
+export async function submitOrder(params: {
+  branchId: string;
+  orderType: OrderType;
+  customerName: string;
+  customerPhone: string;
+  notes: string | null;
+  items: PlaceOrderItem[];
+}): Promise<PlaceOrderResult> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("storefront_place_order", {
+    p_tenant_slug: TENANT_SLUG,
+    p_branch_id: params.branchId,
+    p_order_type: params.orderType,
+    p_customer_name: params.customerName,
+    p_customer_phone: params.customerPhone,
+    p_notes: params.notes,
+    p_items: params.items,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error("تعذّر إنشاء الطلب");
+  return row as PlaceOrderResult;
 }

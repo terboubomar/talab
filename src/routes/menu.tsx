@@ -3,12 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShoppingBag, ImageOff } from "lucide-react";
 
-import {
-  ORDER_TYPE_LABEL,
-  brandQuery,
-  readSelection,
-  type Selection,
-} from "@/lib/storefront";
+import { ORDER_TYPE_LABEL, brandQuery, readSelection, type Selection } from "@/lib/storefront";
 import {
   cartCount,
   cartTotal,
@@ -20,6 +15,7 @@ import {
   type Product,
 } from "@/lib/menu";
 import { applyBrandTheme } from "@/lib/theme";
+import { readCart, saveCart } from "@/lib/cart";
 import { ProductSheet } from "@/components/ProductSheet";
 
 export const Route = createFileRoute("/menu")({
@@ -74,21 +70,25 @@ function MenuPage() {
 }
 
 function MenuContent({ selection }: { selection: Selection }) {
+  const navigate = useNavigate();
   const { data: brand } = useQuery(brandQuery);
   const { data, isLoading, isError, error } = useQuery(menuQuery(selection.branchId));
 
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cart, setCart] = useState<CartLine[]>(() => readCart());
   const [active, setActive] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    saveCart(cart);
+  }, [cart]);
 
   useEffect(() => {
     applyBrandTheme(brand?.theme);
   }, [brand?.theme]);
 
   const categories = useMemo(
-    () =>
-      [...(data ?? [])].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)),
+    () => [...(data ?? [])].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)),
     [data],
   );
 
@@ -142,9 +142,7 @@ function MenuContent({ selection }: { selection: Selection }) {
       <header className="sticky top-0 z-30 border-b border-border bg-background">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-4">
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-base font-extrabold">
-              {brand?.name_ar ?? "طلب"}
-            </span>
+            <span className="truncate text-base font-extrabold">{brand?.name_ar ?? "طلب"}</span>
             <span className="truncate text-xs text-muted-foreground">
               {selection.branchNameAr} ·{" "}
               {ORDER_TYPE_LABEL[selection.orderType] ?? selection.orderType} ·{" "}
@@ -230,6 +228,7 @@ function MenuContent({ selection }: { selection: Selection }) {
           <div className="mx-auto max-w-5xl">
             <button
               type="button"
+              onClick={() => navigate({ to: "/checkout" })}
               className="w-full rounded-pill bg-brand px-5 py-3.5 text-sm font-bold text-brand-ink"
             >
               عرض السلة · {count} أصناف · {formatSAR(total)}
@@ -320,9 +319,7 @@ function ProductCard({
         <span className="flex flex-1 flex-col gap-1 p-3">
           <span className="text-sm font-bold">{product.name_ar}</span>
           {product.desc_ar ? (
-            <span className="line-clamp-2 text-xs text-muted-foreground">
-              {product.desc_ar}
-            </span>
+            <span className="line-clamp-2 text-xs text-muted-foreground">{product.desc_ar}</span>
           ) : null}
           <span className="mt-auto pt-2 text-sm font-bold text-brand">
             {formatSAR(product.price ?? 0)}

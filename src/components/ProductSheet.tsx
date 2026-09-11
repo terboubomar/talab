@@ -71,13 +71,17 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
 
   function add() {
     onAdd({
-      key: `${product.id}:${chosen.map((o) => o.id).sort().join(",")}:${note}`,
+      key: `${product.id}:${chosen
+        .map((o) => o.id)
+        .sort()
+        .join(",")}:${note}`,
       productId: product.id,
       nameAr: product.name_ar,
       image: product.image,
       quantity,
       unitPrice,
       optionNames: chosen.map((o) => o.name_ar),
+      modifierIds: chosen.map((o) => o.id),
       note,
     });
   }
@@ -98,11 +102,7 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
       >
         <div className="relative">
           {product.image ? (
-            <img
-              src={product.image}
-              alt={product.name_ar}
-              className="h-52 w-full object-cover"
-            />
+            <img src={product.image} alt={product.name_ar} className="h-52 w-full object-cover" />
           ) : (
             <div className="flex h-40 w-full items-center justify-center bg-secondary text-muted-foreground">
               <ImageOff aria-hidden className="size-8" />
@@ -123,9 +123,7 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <span className="font-bold text-brand">{formatSAR(basePrice)}</span>
             {product.calories != null ? (
-              <span className="text-muted-foreground">
-                {formatCalories(product.calories)}
-              </span>
+              <span className="text-muted-foreground">{formatCalories(product.calories)}</span>
             ) : null}
           </div>
           {product.desc_ar ? (
@@ -141,9 +139,7 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
               <section key={group.id} className="mt-6">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-bold">{group.name_ar}</h3>
-                  <span className="chip text-xs">
-                    {group.required ? "إلزامي" : `حتى ${cap}`}
-                  </span>
+                  <span className="chip text-xs">{group.required ? "إلزامي" : `حتى ${cap}`}</span>
                 </div>
                 <div
                   className="mt-2 flex flex-col divide-y divide-border rounded-card border border-border"
@@ -176,9 +172,7 @@ export function ProductSheet({ product, onClose, onAdd }: Props) {
                         />
                         <span className="flex-1">{option.name_ar}</span>
                         {price > 0 ? (
-                          <span className="text-sm font-bold text-brand">
-                            +{formatSAR(price)}
-                          </span>
+                          <span className="text-sm font-bold text-brand">+{formatSAR(price)}</span>
                         ) : null}
                       </label>
                     );

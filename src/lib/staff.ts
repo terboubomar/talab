@@ -4,6 +4,7 @@ export type OrderStatus =
   "pending" | "accepted" | "preparing" | "ready" | "out_for_delivery" | "completed" | "cancelled";
 
 export type OrderType = "delivery" | "pickup" | "curbside" | "dinein";
+export type RefundKind = "order" | "deposit";
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "بانتظار القبول",
@@ -38,10 +39,25 @@ export type StaffOrder = {
   status: OrderStatus;
   notes: string | null;
   subtotal: number;
+  deposit_total: number;
   total: number;
   placed_at: string;
   customers: { name: string; phone: string } | null;
   order_items: StaffOrderItem[];
+};
+
+export type OrderRefund = {
+  id: string;
+  order_id: string;
+  kind: RefundKind;
+  amount: number;
+  currency: string;
+  reason: string;
+  status: "pending" | "completed" | "failed" | "cancelled";
+  execution_mode: "manual" | "gateway";
+  created_by_name: string | null;
+  created_at: string;
+  completed_at: string | null;
 };
 
 export async function staffSignIn(email: string, password: string) {
@@ -49,9 +65,6 @@ export async function staffSignIn(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
 
-  // Newly invited staff may have confirmed their auth email before their first login.
-  // Claiming is idempotent from the UI perspective: already-linked accounts simply
-  // receive no_pending_invite, which must not block a valid sign-in.
   await supabase.rpc("staff_claim_invite");
 }
 
@@ -65,7 +78,7 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, total, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
     .order("placed_at", { ascending: true });
@@ -73,8 +86,42 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
   return (data ?? []) as unknown as StaffOrder[];
 }
 
-// Permission-per-transition mapping lives in the staff_update_order_status RPC itself;
-// the RPC is the source of truth and returns not_authorized if the caller lacks it.
+export async function fetchOrderRefunds(orderId: string): Promise<OrderRefund[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("order_refunds")
+    .select("id, order_id, kind, amount, currency, reason, status, execution_mode, created_by_name, created_at, completed_at")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as OrderRefund[];
+}
+
+export async function createManualRefund(input: {
+  orderId: string;
+  amount: number;
+  reason: string;
+  kind: RefundKind;
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_create_manual_refund", {
+    p_order_id: input.orderId,
+    p_amount: input.amount,
+    p_reason: input.reason,
+    p_kind: input.kind,
+  });
+  if (error) throw error;
+  return data as {
+    id: string;
+    order_id: string;
+    kind: RefundKind;
+    amount: number;
+    currency: string;
+    status: "completed";
+    execution_mode: "manual";
+    remaining: number;
+  };
+}
 
 export async function updateOrderStatus(orderId: string, next: OrderStatus) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");

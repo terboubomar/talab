@@ -150,12 +150,51 @@ function CheckoutContent({ selection, cart, setCart }: {
     (paymentMethod === "cash" || Boolean(paymentOption)),
   [name, phone, cart, submitting, paymentMethod, paymentOption]);
 
+  const itemsKey = useMemo(() => JSON.stringify(orderItems), [orderItems]);
+  const manualCode = couponCode.trim();
+  const areaId = selection.delivery?.areaId;
+
+  // Auto-apply: pick the best eligible coupon while no manual code is entered.
+  useEffect(() => {
+    if (manualCode) return;
+    if (!couponCartId || cart.length === 0 || phone.trim().length < 9) return;
+    let active = true;
+    const timer = setTimeout(() => {
+      quoteBestAutoCoupon({
+        branchId: selection.branchId,
+        orderType: selection.orderType,
+        customerPhone: phone.trim(),
+        items: orderItems,
+        cartId: couponCartId,
+        ...(areaId ? { areaId } : {}),
+      })
+        .then((quote) => {
+          if (!active) return;
+          if (quote) {
+            setCouponQuote({ ...quote, auto_applied: true });
+            setCouponError(null);
+          } else {
+            setCouponQuote((prev) => (prev?.auto_applied ? null : prev));
+          }
+        })
+        .catch(() => {
+          if (active) setCouponQuote((prev) => (prev?.auto_applied ? null : prev));
+        });
+    }, 400);
+    return () => { active = false; clearTimeout(timer); };
+  }, [manualCode, couponCartId, phone, itemsKey, orderItems, cart.length, areaId, selection.branchId, selection.orderType]);
+
   function invalidateCoupon() {
-    if (couponQuote) {
+    if (!couponQuote) return;
+    if (couponQuote.auto_applied) {
+      // auto-applied offers recalculate on their own, no warning needed
       setCouponQuote(null);
-      setCouponError("تم تعديل السلة. أعد تطبيق الكوبون لتحديث الخصم.");
+      return;
     }
+    setCouponQuote(null);
+    setCouponError("تم تعديل السلة. أعد تطبيق الكوبون لتحديث الخصم.");
   }
+
 
   function updateQty(key: string, delta: number) {
     invalidateCoupon();

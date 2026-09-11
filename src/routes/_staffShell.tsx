@@ -15,6 +15,7 @@ const NAV_ITEMS: { label: string; to: string; perm: string; enabled: boolean }[]
   { label: "التقارير", to: "/admin/reports", perm: "dashboard.reports", enabled: true },
   { label: "الاستردادات", to: "/admin/refunds", perm: "orders.refund", enabled: true },
   { label: "المنتجات", to: "/admin/products", perm: "menus.view", enabled: true },
+  { label: "الكوبونات", to: "/admin/coupons", perm: "coupons.view", enabled: true },
   { label: "الفروع", to: "/admin/branches", perm: "branches.view", enabled: false },
   { label: "أدوات التسويق", to: "/admin/marketing", perm: "marketing.tools", enabled: false },
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: false },
@@ -65,42 +66,25 @@ function StaffShell() {
             const active = pathname === item.to;
             if (!item.enabled) {
               return (
-                <div
-                  key={item.to}
-                  className="flex cursor-not-allowed items-center justify-between rounded-card px-3 py-2.5 text-sm font-bold text-muted-foreground opacity-50"
-                >
-                  <span>{item.label}</span>
-                  <span className="text-[10px]">قريباً</span>
+                <div key={item.to} className="flex cursor-not-allowed items-center justify-between rounded-card px-3 py-2.5 text-sm font-bold text-muted-foreground opacity-50">
+                  <span>{item.label}</span><span className="text-[10px]">قريباً</span>
                 </div>
               );
             }
             return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center rounded-card px-3 py-2.5 text-sm font-bold ${
-                  active ? "bg-brand text-brand-ink" : "text-foreground hover:bg-secondary"
-                }`}
-              >
+              <Link key={item.to} to={item.to} className={`flex items-center rounded-card px-3 py-2.5 text-sm font-bold ${active ? "bg-brand text-brand-ink" : "text-foreground hover:bg-secondary"}`}>
                 {item.label}
               </Link>
             );
           })}
         </nav>
         <div className="border-t border-border p-3">
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex w-full items-center gap-1.5 rounded-card px-3 py-2.5 text-sm font-bold text-muted-foreground hover:bg-secondary"
-          >
-            <LogOut aria-hidden className="size-4" />
-            خروج
+          <button type="button" onClick={handleSignOut} className="flex w-full items-center gap-1.5 rounded-card px-3 py-2.5 text-sm font-bold text-muted-foreground hover:bg-secondary">
+            <LogOut aria-hidden className="size-4" /> خروج
           </button>
         </div>
       </aside>
-      <div className="flex-1 overflow-y-auto">
-        <Outlet />
-      </div>
+      <div className="flex-1 overflow-y-auto"><Outlet /></div>
     </div>
   );
 }

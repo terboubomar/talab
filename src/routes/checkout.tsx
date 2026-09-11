@@ -204,7 +204,7 @@ function CheckoutContent({ selection, cart, setCart }: {
     try {
       const d = selection.delivery;
       let refreshedCoupon = couponQuote;
-      if (couponCode.trim() && couponCartId) {
+      if (couponQuote && !couponQuote.auto_applied && couponCode.trim() && couponCartId) {
         try {
           refreshedCoupon = await quoteCoupon({
             branchId: selection.branchId,

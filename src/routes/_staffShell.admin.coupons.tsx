@@ -95,6 +95,8 @@ function fromCoupon(coupon: Coupon): EditorState {
     value: String(coupon.value),
     maxDiscount: coupon.max_discount == null ? "" : String(coupon.max_discount),
     freeDelivery: coupon.free_delivery,
+    autoApply: coupon.auto_apply,
+
     minPurchase: String(coupon.min_purchase),
     startsAt: localInput(coupon.starts_at),
     endsAt: localInput(coupon.ends_at),

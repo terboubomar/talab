@@ -59,6 +59,7 @@ export function MoyasarPaymentForm({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const formId = `talab-moyasar-${orderId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current || initializedRef.current) return;
@@ -79,7 +80,7 @@ export function MoyasarPaymentForm({
 
         const methods = option.methods.length ? option.methods : ["creditcard"];
         const config: Record<string, unknown> = {
-          element: containerRef.current,
+          element: `#${formId}`,
           amount: Math.round(total * 100),
           currency: "SAR",
           description: `Talab order ${orderId.slice(0, 8)}`,
@@ -127,6 +128,7 @@ export function MoyasarPaymentForm({
 
         window.Moyasar.init(config);
       } catch {
+        initializedRef.current = false;
         if (active) setError("تعذّر تحميل بوابة الدفع حالياً. يمكنك الرجوع واختيار الدفع عند الاستلام.");
       }
     }
@@ -135,7 +137,7 @@ export function MoyasarPaymentForm({
     return () => {
       active = false;
     };
-  }, [branchName, option, orderId, total]);
+  }, [branchName, formId, option, orderId, total]);
 
   return (
     <div className="w-full max-w-lg">
@@ -143,7 +145,7 @@ export function MoyasarPaymentForm({
         <p className="text-sm font-extrabold">إتمام الدفع عبر ميسر</p>
         <p className="mt-1 text-2xl font-extrabold text-brand">{formatSAR(total)}</p>
         {option.environment === "test" ? (
-          <span className="mt-2 inline-flex rounded-pill bg-warning/10 px-3 py-1 text-xs font-bold text-warning">
+          <span className="mt-2 inline-flex rounded-pill bg-secondary px-3 py-1 text-xs font-bold text-muted-foreground">
             وضع الاختبار
           </span>
         ) : null}
@@ -153,7 +155,7 @@ export function MoyasarPaymentForm({
           {error}
         </div>
       ) : null}
-      <div ref={containerRef} className="mysr-form min-h-24" dir="ltr" />
+      <div id={formId} ref={containerRef} className="mysr-form min-h-24" dir="ltr" />
       <p className="mt-4 text-center text-xs leading-6 text-muted-foreground">
         لن يعتبر طلبك مدفوعاً ولن يظهر للمطبخ كطلب إلكتروني مؤكد إلا بعد التحقق من ميسر على الخادم.
       </p>

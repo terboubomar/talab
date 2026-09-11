@@ -226,6 +226,8 @@ function CouponsPage() {
                       <span dir="ltr" className="text-sm font-extrabold">{coupon.code}</span>
                       <span className={`rounded-pill px-2.5 py-1 text-[10px] font-bold ${coupon.status === "active" ? "bg-success/10 text-success" : "bg-secondary text-muted-foreground"}`}>{coupon.status === "active" ? "مفعّل" : "متوقف"}</span>
                       {coupon.free_delivery ? <span className="rounded-pill bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand">توصيل مجاني</span> : null}
+                      {coupon.auto_apply ? <span className="rounded-pill bg-secondary px-2.5 py-1 text-[10px] font-bold text-foreground">تلقائي</span> : null}
+
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {coupon.discount_type === "percent" ? `${coupon.value}%` : formatSAR(coupon.value)}

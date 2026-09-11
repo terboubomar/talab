@@ -149,7 +149,7 @@ function CouponsPage() {
           ends_at: editor.endsAt ? new Date(editor.endsAt).toISOString() : "",
           total_limit: editor.totalLimit,
           per_customer_limit: editor.perCustomerLimit,
-          auto_apply: false,
+          auto_apply: editor.autoApply,
           day_parting_json: editor.useSchedule
             ? { windows: [{ weekdays: editor.weekdays, start: editor.startTime, end: editor.endTime }] }
             : {},

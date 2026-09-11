@@ -19,7 +19,7 @@ const NAV_ITEMS: { label: string; to: string; perm: string; enabled: boolean }[]
   { label: "أدوات التسويق", to: "/admin/marketing", perm: "marketing.tools", enabled: false },
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: false },
   { label: "الموظفين", to: "/admin/staff", perm: "staff.view", enabled: true },
-  { label: "المدفوعات", to: "/admin/payments", perm: "payments.view", enabled: false },
+  { label: "المدفوعات", to: "/admin/payments", perm: "payments.view", enabled: true },
   { label: "الإعدادات", to: "/admin/settings", perm: "settings.manage", enabled: false },
 ];
 

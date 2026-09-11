@@ -15,7 +15,7 @@ import { readCart, saveCart, clearCart } from "@/lib/cart";
 import { cartCount, cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
 import { saveAddress } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
-import { getCouponCartId, quoteCoupon, resetCouponCartId, type CouponQuote } from "@/lib/coupons";
+import { getCouponCartId, quoteBestAutoCoupon, quoteCoupon, resetCouponCartId, type CouponQuote } from "@/lib/coupons";
 import { MoyasarPaymentForm } from "@/components/moyasar-payment-form";
 
 export const Route = createFileRoute("/checkout")({

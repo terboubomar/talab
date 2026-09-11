@@ -48,6 +48,11 @@ export async function staffSignIn(email: string, password: string) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
+
+  // Newly invited staff may have confirmed their auth email before their first login.
+  // Claiming is idempotent from the UI perspective: already-linked accounts simply
+  // receive no_pending_invite, which must not block a valid sign-in.
+  await supabase.rpc("staff_claim_invite");
 }
 
 export async function staffSignOut() {

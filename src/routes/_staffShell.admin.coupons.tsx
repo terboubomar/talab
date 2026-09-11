@@ -82,8 +82,8 @@ function localInput(value: string | null) {
 }
 
 function fromCoupon(coupon: Coupon): EditorState {
-  const windows = Array.isArray(coupon.day_parting_json?.windows)
-    ? coupon.day_parting_json.windows as Array<Record<string, unknown>>
+  const windows = Array.isArray(coupon.day_parting_json?.['windows'])
+    ? coupon.day_parting_json['windows'] as Array<Record<string, unknown>>
     : [];
   const first = windows[0];
   return {
@@ -102,9 +102,9 @@ function fromCoupon(coupon: Coupon): EditorState {
     successEn: coupon.success_msg_en ?? "",
     status: coupon.status,
     useSchedule: Boolean(first),
-    weekdays: Array.isArray(first?.weekdays) ? first.weekdays.map(Number) : [0, 1, 2, 3, 4, 5, 6],
-    startTime: typeof first?.start === "string" ? first.start : "00:00",
-    endTime: typeof first?.end === "string" ? first.end : "23:59",
+    weekdays: Array.isArray(first?.['weekdays']) ? first['weekdays'].map(Number) : [0, 1, 2, 3, 4, 5, 6],
+    startTime: typeof first?.['start'] === "string" ? first['start'] : "00:00",
+    endTime: typeof first?.['end'] === "string" ? first['end'] : "23:59",
     scopes: coupon.scopes,
   };
 }

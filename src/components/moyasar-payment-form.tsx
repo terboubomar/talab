@@ -20,7 +20,7 @@ function ensureStyle() {
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = MOYASAR_STYLE;
-  link.dataset.talabMoyasar = "true";
+  link.dataset['talabMoyasar'] = "true";
   document.head.appendChild(link);
 }
 
@@ -38,7 +38,7 @@ function ensureScript(): Promise<void> {
     const script = document.createElement("script");
     script.src = MOYASAR_SCRIPT;
     script.async = true;
-    script.dataset.talabMoyasar = "true";
+    script.dataset['talabMoyasar'] = "true";
     script.addEventListener("load", () => resolve(), { once: true });
     script.addEventListener("error", () => reject(new Error("moyasar_script_failed")), { once: true });
     document.head.appendChild(script);
@@ -119,7 +119,7 @@ export function MoyasarPaymentForm({
         };
 
         if (methods.includes("applepay")) {
-          config.apple_pay = {
+          config['apple_pay'] = {
             country: "SA",
             label: branchName || "Talab",
             validate_merchant_url: "https://api.moyasar.com/v1/applepay/initiate",

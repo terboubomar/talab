@@ -23,7 +23,7 @@ function riyadhToday() {
 }
 
 function addDays(date: string, days: number) {
-  const [y, m, d] = date.split("-").map(Number);
+  const [y = 1970, m = 1, d = 1] = date.split("-").map(Number);
   const value = new Date(Date.UTC(y, m - 1, d));
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);

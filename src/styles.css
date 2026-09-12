@@ -367,3 +367,24 @@
     cursor: not-allowed;
   }
 }
+
+@utility field {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background-color: var(--surface);
+  color: var(--ink);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}

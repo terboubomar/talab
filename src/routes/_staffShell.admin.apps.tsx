@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 
 import {
+  TrackingIntegrationWorkspace,
+  isTrackingIntegration,
+} from "@/components/admin/TrackingIntegrationWorkspace";
+import {
   fetchFoodicsSetup,
   fetchIntegrations,
   pullFoodicsMenu,
@@ -136,7 +140,7 @@ function AppsPage() {
           </div>
           <div className="flex items-center gap-2 rounded-card border border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
             <LockKeyhole aria-hidden className="size-4 text-success" />
-            بيانات الاعتماد محفوظة في Supabase Vault
+            بيانات الاعتماد الحساسة محفوظة في Supabase Vault
           </div>
         </section>
 
@@ -201,6 +205,8 @@ function MarketplaceCard({ integration, onOpen }: { integration: IntegrationProv
   const capabilities = Array.isArray(integration.config_schema["capabilities"])
     ? (integration.config_schema["capabilities"] as string[])
     : [];
+  const tracking = isTrackingIntegration(integration.provider_slug);
+  const configured = integration.integration_status !== "disconnected";
 
   return (
     <button
@@ -230,8 +236,14 @@ function MarketplaceCard({ integration, onOpen }: { integration: IntegrationProv
       </div>
 
       <div className="mt-auto flex items-center justify-between border-t border-border pt-4 text-xs">
-        <span className={integration.has_credentials ? "font-bold text-success" : "text-muted-foreground"}>
-          {integration.has_credentials ? "بيانات الاعتماد محفوظة" : "يحتاج إلى إعداد"}
+        <span className={configured ? "font-bold text-success" : "text-muted-foreground"}>
+          {configured
+            ? tracking
+              ? "معرّف التتبع محفوظ"
+              : integration.has_credentials
+                ? "بيانات الاعتماد محفوظة"
+                : "تم الإعداد"
+            : "يحتاج إلى إعداد"}
         </span>
         <span className="inline-flex items-center gap-1 font-bold text-brand">
           فتح التطبيق
@@ -243,6 +255,8 @@ function MarketplaceCard({ integration, onOpen }: { integration: IntegrationProv
 }
 
 function AppWorkspace({ integration, onBack }: { integration: IntegrationProvider; onBack: () => void }) {
+  const tracking = isTrackingIntegration(integration.provider_slug);
+
   return (
     <main className="min-h-screen pb-12">
       <header className="border-b border-border bg-background px-5 py-5">
@@ -268,7 +282,10 @@ function AppWorkspace({ integration, onBack }: { integration: IntegrationProvide
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <InfoPill icon={<LockKeyhole className="size-3.5" />} label={integration.has_credentials ? "الاعتماد محفوظ" : "بدون اعتماد"} />
+            <InfoPill
+              icon={<LockKeyhole className="size-3.5" />}
+              label={tracking ? "معرّف عام بدون Secret" : integration.has_credentials ? "الاعتماد محفوظ" : "بدون اعتماد"}
+            />
             <InfoPill icon={<PlugZap className="size-3.5" />} label={statusLabel(integration.integration_status)} />
           </div>
         </div>
@@ -277,6 +294,8 @@ function AppWorkspace({ integration, onBack }: { integration: IntegrationProvide
       <div className="px-5 py-6">
         {integration.provider_slug === "foodics" ? (
           <FoodicsWorkspace integration={integration} />
+        ) : tracking ? (
+          <TrackingIntegrationWorkspace integration={integration} />
         ) : (
           <ComingSoonWorkspace integration={integration} />
         )}
@@ -796,5 +815,9 @@ function capabilityLabel(value: string) {
   if (value === "delivery_dispatch") return "إسناد التوصيل";
   if (value === "delivery_tracking") return "تتبع التوصيل";
   if (value === "sandbox") return "Sandbox";
+  if (value === "page_view") return "Page View";
+  if (value === "conversion_tracking") return "تتبع التحويلات";
+  if (value === "tag_manager") return "إدارة الوسوم";
+  if (value === "analytics") return "التحليلات";
   return value;
 }

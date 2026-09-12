@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Minus, Plus, Search, ShoppingBag, Trash2, X } from "lucide-react";
+import { Banknote, CreditCard, Minus, Plus, Search, ShoppingBag, Trash2, X } from "lucide-react";
 
+import { MoyasarPaymentForm } from "@/components/moyasar-payment-form";
 import {
   createCallCenterOrder,
   fetchCallCenterSetup,
@@ -9,6 +10,11 @@ import {
   type CallCenterCustomer,
 } from "@/lib/call-center";
 import { formatSAR, menuQuery, type Product } from "@/lib/menu";
+import {
+  fetchStorefrontPaymentOption,
+  type CheckoutPaymentMethod,
+  type StorefrontPaymentOption,
+} from "@/lib/storefront";
 import { ORDER_TYPE_LABEL, type OrderType } from "@/lib/staff";
 
 type DraftLine = {
@@ -20,6 +26,13 @@ type DraftLine = {
   modifierIds: string[];
   modifierNames: string[];
   modifierUnitTotal: number;
+};
+
+type OnlineOrder = {
+  orderId: string;
+  total: number;
+  option: StorefrontPaymentOption;
+  branchName: string;
 };
 
 export function CallCenterOrderPanel({
@@ -38,6 +51,7 @@ export function CallCenterOrderPanel({
   });
   const [branchId, setBranchId] = useState("");
   const [orderType, setOrderType] = useState<OrderType>("pickup");
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("cash");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -52,11 +66,18 @@ export function CallCenterOrderPanel({
   const [busy, setBusy] = useState(false);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [onlineOrder, setOnlineOrder] = useState<OnlineOrder | null>(null);
 
   const branch = setup?.branches.find((item) => item.id === branchId) ?? null;
   const { data: categories = [], isLoading: menuLoading } = useQuery({
     ...menuQuery(branchId),
     enabled: open && Boolean(branchId),
+  });
+  const { data: paymentOption = null, isLoading: paymentLoading } = useQuery({
+    queryKey: ["call-center-payment-option", branchId],
+    queryFn: () => fetchStorefrontPaymentOption(branchId),
+    enabled: open && Boolean(branchId),
+    retry: false,
   });
 
   useEffect(() => {
@@ -78,10 +99,16 @@ export function CallCenterOrderPanel({
   }, [branch, orderType]);
 
   useEffect(() => {
+    if (!paymentLoading && paymentMethod === "online" && !paymentOption) {
+      setPaymentMethod("cash");
+    }
+  }, [paymentLoading, paymentMethod, paymentOption]);
+
+  useEffect(() => {
     if (!open) {
-      setBranchId(""); setOrderType("pickup"); setName(""); setPhone(""); setNotes("");
+      setBranchId(""); setOrderType("pickup"); setPaymentMethod("cash"); setName(""); setPhone(""); setNotes("");
       setAreaId(""); setAddressText(""); setSearch(""); setCart([]); setEditingProduct(null);
-      setCustomerMatch(null); setMessage(null);
+      setCustomerMatch(null); setMessage(null); setOnlineOrder(null);
     }
   }, [open]);
 
@@ -179,10 +206,13 @@ export function CallCenterOrderPanel({
     if (orderType === "delivery" && (!areaId || !addressText.trim())) {
       setMessage("اختر منطقة التوصيل وأدخل العنوان"); return;
     }
+    if (paymentMethod === "online" && !paymentOption) {
+      setMessage("الدفع الإلكتروني غير مفعّل لهذا الفرع"); return;
+    }
     setBusy(true); setMessage(null);
     try {
       const result = await createCallCenterOrder({
-        branchId, orderType, customerName: name, customerPhone: phone, notes,
+        branchId, orderType, customerName: name, customerPhone: phone, notes, paymentMethod,
         items: cart.map((line) => ({ product_id: line.productId, qty: line.qty, modifier_ids: line.modifierIds })),
         ...(orderType === "delivery" ? {
           areaId,
@@ -192,10 +222,22 @@ export function CallCenterOrderPanel({
         } : {}),
       });
       onCreated(result);
-      onClose();
+      if (paymentMethod === "online" && paymentOption) {
+        setOnlineOrder({
+          orderId: result.order_id,
+          total: result.total,
+          option: paymentOption,
+          branchName: branch?.name_ar ?? "طلب",
+        });
+        setMessage(null);
+      } else {
+        onClose();
+      }
     } catch (error) {
       const text = error instanceof Error ? error.message : "";
       setMessage(
+        text.includes("online_payment_not_available") ? "الدفع الإلكتروني غير مفعّل لهذا الفرع. اختر الدفع عند الاستلام أو فعّل حساب الدفع أولاً." :
+        text.includes("invalid_payment_method") ? "طريقة الدفع غير صحيحة" :
         text.includes("product_not_available") || text.includes("invalid_product") ? "أحد الأصناف لم يعد متاحاً لهذا الفرع" :
         text.includes("invalid_modifier") ? "إحدى الإضافات لم تعد متاحة" :
         text.includes("invalid_delivery_area") ? "منطقة التوصيل غير متاحة لهذا الفرع" :
@@ -206,6 +248,32 @@ export function CallCenterOrderPanel({
   }
 
   if (!open) return null;
+
+  if (onlineOrder) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black/35 p-3 sm:p-5" dir="rtl">
+        <div className="mx-auto flex h-full max-w-2xl flex-col overflow-y-auto rounded-2xl border border-border bg-background p-5 shadow-xl">
+          <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <h2 className="text-base font-extrabold">إتمام الدفع الإلكتروني</h2>
+              <p className="mt-1 text-xs text-muted-foreground">تم إنشاء الطلب بانتظار الدفع. لن ينتقل للمطبخ كطلب مدفوع حتى يؤكد ميسر العملية.</p>
+              <p dir="ltr" className="mt-2 text-xs font-bold text-muted-foreground">Order #{onlineOrder.orderId.slice(0, 8)}</p>
+            </div>
+            <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-secondary"><X className="size-4" /></button>
+          </div>
+          <div className="flex flex-1 items-start justify-center py-6">
+            <MoyasarPaymentForm
+              orderId={onlineOrder.orderId}
+              total={onlineOrder.total}
+              branchName={onlineOrder.branchName}
+              option={onlineOrder.option}
+            />
+          </div>
+          <button type="button" onClick={onClose} className="w-full rounded-card border border-border px-4 py-3 text-sm font-bold hover:bg-secondary">العودة إلى الطلبات</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black/35 p-3 sm:p-5" dir="rtl">
@@ -218,7 +286,7 @@ export function CallCenterOrderPanel({
         <div className="grid min-h-0 flex-1 lg:grid-cols-[1.5fr_0.9fr]">
           <section className="min-h-0 overflow-y-auto border-b border-border p-4 lg:border-b-0 lg:border-l">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="الفرع"><select value={branchId} onChange={(e) => { setBranchId(e.target.value); setCart([]); }} className="cc-input"><option value="">اختر الفرع</option>{setup?.branches.map((item) => <option key={item.id} value={item.id}>{item.name_ar}</option>)}</select></Field>
+              <Field label="الفرع"><select value={branchId} onChange={(e) => { setBranchId(e.target.value); setCart([]); setPaymentMethod("cash"); }} className="cc-input"><option value="">اختر الفرع</option>{setup?.branches.map((item) => <option key={item.id} value={item.id}>{item.name_ar}</option>)}</select></Field>
               <Field label="نوع الطلب"><select value={orderType} onChange={(e) => setOrderType(e.target.value as OrderType)} className="cc-input">{branch?.order_types.map((type) => <option key={type} value={type}>{ORDER_TYPE_LABEL[type]}</option>)}</select></Field>
             </div>
 
@@ -246,6 +314,22 @@ export function CallCenterOrderPanel({
                 <Field label="منطقة التوصيل"><select value={areaId} onChange={(e) => setAreaId(e.target.value)} className="cc-input"><option value="">اختر المنطقة</option>{branch?.delivery_zones.map((item) => <option key={item.area_id} value={item.area_id}>{item.name_ar} · {formatSAR(Number(item.fee))}</option>)}</select></Field>
                 <Field label="عنوان التوصيل"><textarea value={addressText} onChange={(e) => setAddressText(e.target.value)} className="cc-input min-h-20" placeholder="الشارع، المبنى، الدور، الشقة..." /></Field>
               </> : null}
+
+              <div>
+                <p className="mb-1.5 text-xs font-bold">طريقة الدفع</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setPaymentMethod("cash")} className={`flex items-center gap-2 rounded-card border p-3 text-right text-xs font-bold ${paymentMethod === "cash" ? "border-brand bg-brand/10 text-brand" : "border-border"}`}>
+                    <Banknote className="size-4" />
+                    <span><span className="block">الدفع عند الاستلام</span><span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">نقدي / تحصيل يدوي</span></span>
+                  </button>
+                  <button type="button" disabled={paymentLoading || !paymentOption} onClick={() => setPaymentMethod("online")} className={`flex items-center gap-2 rounded-card border p-3 text-right text-xs font-bold disabled:cursor-not-allowed disabled:opacity-45 ${paymentMethod === "online" ? "border-brand bg-brand/10 text-brand" : "border-border"}`}>
+                    <CreditCard className="size-4" />
+                    <span><span className="block">دفع إلكتروني</span><span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">{paymentLoading ? "جارٍ التحقق…" : paymentOption ? "عبر ميسر" : "غير مفعّل لهذا الفرع"}</span></span>
+                  </button>
+                </div>
+                {paymentMethod === "online" ? <p className="mt-2 text-[10px] leading-5 text-muted-foreground">سيُنشأ الطلب بحالة بانتظار الدفع، ثم يفتح نموذج ميسر الآمن. لا يحفظ طلب بيانات البطاقة.</p> : null}
+              </div>
+
               <Field label="ملاحظات الطلب"><textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="cc-input min-h-16" /></Field>
             </div>
 
@@ -259,10 +343,10 @@ export function CallCenterOrderPanel({
               ))}
             </div>
 
-            <div className="mt-4 space-y-2 border-t border-border pt-4 text-xs"><div className="flex justify-between"><span className="text-muted-foreground">تقدير المنتجات</span><span>{formatSAR(localSubtotal)}</span></div>{orderType === "delivery" ? <div className="flex justify-between"><span className="text-muted-foreground">تقدير التوصيل</span><span>{formatSAR(estimatedDelivery)}</span></div> : null}<div className="flex justify-between text-sm font-extrabold"><span>التقدير</span><span>{formatSAR(localSubtotal+estimatedDelivery)}</span></div><p className="text-[10px] text-muted-foreground">القيمة النهائية يعيد الخادم حسابها عند إنشاء الطلب.</p></div>
+            <div className="mt-4 space-y-2 border-t border-border pt-4 text-xs"><div className="flex justify-between"><span className="text-muted-foreground">تقدير المنتجات</span><span>{formatSAR(localSubtotal)}</span></div>{orderType === "delivery" ? <div className="flex justify-between"><span className="text-muted-foreground">تقدير التوصيل</span><span>{formatSAR(estimatedDelivery)}</span></div> : null}<div className="flex justify-between"><span className="text-muted-foreground">طريقة الدفع</span><span>{paymentMethod === "cash" ? "عند الاستلام" : "إلكتروني"}</span></div><div className="flex justify-between text-sm font-extrabold"><span>التقدير</span><span>{formatSAR(localSubtotal+estimatedDelivery)}</span></div><p className="text-[10px] text-muted-foreground">القيمة النهائية يعيد الخادم حسابها عند إنشاء الطلب.</p></div>
 
             {message ? <p className="mt-3 rounded-card bg-secondary px-3 py-2 text-xs font-bold">{message}</p> : null}
-            <button type="button" onClick={submit} disabled={busy || cart.length===0} className="mt-4 w-full rounded-card bg-brand px-4 py-3 text-sm font-extrabold text-brand-ink disabled:opacity-50">{busy ? "جاري إنشاء الطلب…" : "إنشاء الطلب"}</button>
+            <button type="button" onClick={submit} disabled={busy || cart.length===0} className="mt-4 w-full rounded-card bg-brand px-4 py-3 text-sm font-extrabold text-brand-ink disabled:opacity-50">{busy ? "جاري إنشاء الطلب…" : paymentMethod === "online" ? "إنشاء الطلب والمتابعة للدفع" : "إنشاء الطلب"}</button>
           </aside>
         </div>
       </div>

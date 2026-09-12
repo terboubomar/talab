@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Volume2, Wifi, WifiOff } from "lucide-react";
 
+import { DeliveryAssignmentPanel } from "@/components/admin/DeliveryAssignmentPanel";
 import { pushOrderToFoodics } from "@/lib/integrations";
 import { formatSAR } from "@/lib/menu";
 import { PAYMENT_STATUS_LABEL } from "@/lib/payments";
@@ -117,7 +118,9 @@ function StaffOrdersPage() {
       await queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
-      setActionError(message.includes("payment_not_confirmed") ? "لا يمكن قبول الطلب قبل تأكيد الدفع الإلكتروني." : "تعذّر تحديث حالة الطلب");
+      if (message.includes("payment_not_confirmed")) setActionError("لا يمكن قبول الطلب قبل تأكيد الدفع الإلكتروني.");
+      else if (message.includes("delivery_assignment_required")) setActionError("يجب إسناد طلب التوصيل إلى سائق أو شركة توصيل قبل بدء التوصيل.");
+      else setActionError("تعذّر تحديث حالة الطلب");
     } finally { setPendingId(null); }
   }
 
@@ -189,6 +192,8 @@ function StaffOrdersPage() {
                   {order.notes ? <p className="mt-2 text-xs text-muted-foreground">ملاحظات الطلب: {order.notes}</p> : null}
                   {order.pos_last_error ? <p className="mt-2 rounded-card bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">فشل POS: {order.pos_last_error}</p> : null}
                   {order.pos_ref ? <p className="mt-2 text-[11px] text-muted-foreground" dir="ltr">Foodics ref: {order.pos_ref}</p> : null}
+
+                  {order.order_type === "delivery" ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="min-w-40 flex-1 rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50">{action.label}</button> : null}

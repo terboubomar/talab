@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   ArrowRight,
+  BadgePercent,
   Banknote,
   CheckCircle2,
   CreditCard,
@@ -22,7 +23,7 @@ import {
   type StorefrontPaymentOption,
 } from "@/lib/storefront";
 import { readCart, saveCart, clearCart } from "@/lib/cart";
-import { cartCount, cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
+import { cartTotal, formatSAR, lineTotal, type CartLine } from "@/lib/menu";
 import { saveAddress } from "@/lib/delivery";
 import { supabase } from "@/lib/supabase";
 import {
@@ -32,10 +33,10 @@ import {
   resetCouponCartId,
   type CouponQuote,
 } from "@/lib/coupons";
+import { quoteMemberPricing, type MemberPricingQuote } from "@/lib/member-pricing";
 import { MoyasarPaymentForm } from "@/components/moyasar-payment-form";
 
 const VAT_RATE = 0.15;
-
 type CheckoutStep = "review" | "contact";
 
 export const Route = createFileRoute("/checkout")({
@@ -73,7 +74,9 @@ function CheckoutPage() {
     return (
       <main className="min-h-screen bg-surface-sunk px-4 py-10">
         <div className="mx-auto grid max-w-2xl gap-3">
-          {[0, 1, 2].map((item) => <div key={item} className="card-surface h-24 animate-pulse opacity-60" />)}
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="card-surface h-24 animate-pulse opacity-60" />
+          ))}
         </div>
       </main>
     );
@@ -105,7 +108,7 @@ function CheckoutContent({
 }: {
   selection: Selection;
   cart: CartLine[];
-  setCart: React.Dispatch<React.SetStateAction<CartLine[]>>;
+  setCart: Dispatch<SetStateAction<CartLine[]>>;
 }) {
   const [step, setStep] = useState<CheckoutStep>("review");
   const [name, setName] = useState("");
@@ -119,6 +122,8 @@ function CheckoutContent({
   const [couponQuote, setCouponQuote] = useState<CouponQuote | null>(null);
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [memberQuote, setMemberQuote] = useState<MemberPricingQuote | null>(null);
+  const [memberQuoteLoading, setMemberQuoteLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
@@ -162,12 +167,6 @@ function CheckoutContent({
     };
   }, [selection.branchId]);
 
-  const estimatedDeliveryFee = useMemo(() => {
-    if (!selection.delivery) return 0;
-    const { fee, belowMinFee, minOrder } = selection.delivery;
-    return cartTotal(cart) >= minOrder ? fee : belowMinFee;
-  }, [selection.delivery, cart]);
-
   const orderItems = useMemo<PlaceOrderItem[]>(
     () =>
       cart.map((line) => ({
@@ -178,13 +177,29 @@ function CheckoutContent({
       })),
     [cart],
   );
+  const itemsKey = useMemo(() => JSON.stringify(orderItems), [orderItems]);
+  const regularSubtotal = cartTotal(cart);
+  const memberSavings = memberQuote?.member_pricing_applied ? Number(memberQuote.savings ?? 0) : 0;
+  const memberSubtotal = memberQuote?.member_pricing_applied
+    ? Number(memberQuote.subtotal ?? regularSubtotal)
+    : regularSubtotal;
 
-  const count = cartCount(cart);
-  const subtotal = cartTotal(cart);
-  const displayedTotal = Number(couponQuote?.total ?? subtotal + estimatedDeliveryFee);
+  const reviewDeliveryFee = useMemo(() => {
+    if (!selection.delivery) return 0;
+    const { fee, belowMinFee, minOrder } = selection.delivery;
+    return regularSubtotal >= minOrder ? fee : belowMinFee;
+  }, [selection.delivery, regularSubtotal]);
+
+  const contactDeliveryFee = useMemo(() => {
+    if (!selection.delivery) return 0;
+    const { fee, belowMinFee, minOrder } = selection.delivery;
+    return memberSubtotal >= minOrder ? fee : belowMinFee;
+  }, [selection.delivery, memberSubtotal]);
+
   const itemDiscount = Number(couponQuote?.discount ?? 0);
   const deliveryDiscount = Number(couponQuote?.delivery_discount ?? 0);
   const totalDiscount = itemDiscount + deliveryDiscount;
+  const displayedTotal = Number(couponQuote?.total ?? memberSubtotal + contactDeliveryFee);
   const vatIncluded = displayedTotal > 0 ? displayedTotal * VAT_RATE / (1 + VAT_RATE) : 0;
 
   const canSubmit = useMemo(
@@ -193,14 +208,45 @@ function CheckoutContent({
       phone.trim().length >= 9 &&
       cart.length > 0 &&
       !submitting &&
+      !memberQuoteLoading &&
       (paymentMethod === "cash" || Boolean(paymentOption)),
-    [name, phone, cart, submitting, paymentMethod, paymentOption],
+    [name, phone, cart, submitting, memberQuoteLoading, paymentMethod, paymentOption],
   );
-
   const canContinue = cart.length > 0 && (paymentMethod === "cash" || Boolean(paymentOption));
-  const itemsKey = useMemo(() => JSON.stringify(orderItems), [orderItems]);
   const manualCode = couponCode.trim();
   const areaId = selection.delivery?.areaId;
+
+  useEffect(() => {
+    if (step !== "contact" || phone.trim().length < 9 || cart.length === 0) {
+      setMemberQuote(null);
+      setMemberQuoteLoading(false);
+      return;
+    }
+
+    let active = true;
+    setMemberQuoteLoading(true);
+    const timer = window.setTimeout(() => {
+      quoteMemberPricing({
+        branchId: selection.branchId,
+        customerPhone: phone.trim(),
+        items: orderItems,
+      })
+        .then((quote) => {
+          if (active) setMemberQuote(quote);
+        })
+        .catch(() => {
+          if (active) setMemberQuote(null);
+        })
+        .finally(() => {
+          if (active) setMemberQuoteLoading(false);
+        });
+    }, 350);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [step, phone, cart.length, itemsKey, orderItems, selection.branchId]);
 
   useEffect(() => {
     if (step !== "contact" || manualCode) return;
@@ -234,7 +280,8 @@ function CheckoutContent({
     };
   }, [step, manualCode, couponCartId, phone, itemsKey, orderItems, cart.length, areaId, selection.branchId, selection.orderType]);
 
-  function invalidateCoupon() {
+  function invalidatePricing() {
+    setMemberQuote(null);
     if (!couponQuote) return;
     if (couponQuote.auto_applied) {
       setCouponQuote(null);
@@ -245,16 +292,18 @@ function CheckoutContent({
   }
 
   function updateQty(key: string, delta: number) {
-    invalidateCoupon();
+    invalidatePricing();
     setCart((previous) =>
       previous
-        .map((line) => (line.key === key ? { ...line, quantity: Math.max(1, line.quantity + delta) } : line))
+        .map((line) =>
+          line.key === key ? { ...line, quantity: Math.max(1, line.quantity + delta) } : line,
+        )
         .filter((line) => line.quantity > 0),
     );
   }
 
   function removeLine(key: string) {
-    invalidateCoupon();
+    invalidatePricing();
     setCart((previous) => previous.filter((line) => line.key !== key));
   }
 
@@ -294,6 +343,13 @@ function CheckoutContent({
     try {
       const delivery = selection.delivery;
       let refreshedCoupon = couponQuote;
+
+      const refreshedMember = await quoteMemberPricing({
+        branchId: selection.branchId,
+        customerPhone: phone.trim(),
+        items: orderItems,
+      }).catch(() => null);
+      setMemberQuote(refreshedMember);
 
       if (couponQuote && !couponQuote.auto_applied && couponCode.trim() && couponCartId) {
         try {
@@ -412,8 +468,12 @@ function CheckoutContent({
         <div className="w-full max-w-lg">
           <div className="card-surface mb-4 p-5 text-center">
             <p className="text-xs font-medium text-ink-3">رقم الطلب</p>
-            <p dir="ltr" className="mt-1 text-lg font-semibold tabular-nums">#{result.orderId.slice(0, 8)}</p>
-            <p className="mt-2 text-xs leading-6 text-ink-2">أكمل الدفع أدناه. الطلب الإلكتروني لن ينتقل إلى المطبخ قبل تأكيد ميسر على الخادم.</p>
+            <p dir="ltr" className="mt-1 text-lg font-semibold tabular-nums">
+              #{result.orderId.slice(0, 8)}
+            </p>
+            <p className="mt-2 text-xs leading-6 text-ink-2">
+              أكمل الدفع أدناه. الطلب الإلكتروني لن ينتقل إلى المطبخ قبل تأكيد ميسر على الخادم.
+            </p>
           </div>
           <div className="card-surface p-5">
             <MoyasarPaymentForm
@@ -434,10 +494,20 @@ function CheckoutContent({
         <div className="card-surface w-full max-w-sm p-8 text-center">
           <CheckCircle2 aria-hidden className="mx-auto size-12 text-brand" />
           <h1 className="mt-4 text-xl font-semibold">تم استلام طلبك</h1>
-          <p className="mt-2 text-sm text-ink-2">رقم الطلب <span dir="ltr" className="font-semibold text-ink tabular-nums">#{result.orderId.slice(0, 8)}</span></p>
+          <p className="mt-2 text-sm text-ink-2">
+            رقم الطلب{" "}
+            <span dir="ltr" className="font-semibold text-ink tabular-nums">
+              #{result.orderId.slice(0, 8)}
+            </span>
+          </p>
           <p className="mt-1 text-2xl font-bold text-brand tabular-nums">{formatSAR(result.total)}</p>
           <p className="mt-2 text-xs text-ink-3">طريقة الدفع: الدفع عند الاستلام</p>
-          <Link to="/menu" className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-card bg-brand px-5 py-3 text-sm font-semibold text-brand-ink">العودة للقائمة</Link>
+          <Link
+            to="/menu"
+            className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-card bg-brand px-5 py-3 text-sm font-semibold text-brand-ink"
+          >
+            العودة للقائمة
+          </Link>
         </div>
       </main>
     );
@@ -448,13 +518,23 @@ function CheckoutContent({
       <header className="sticky top-0 z-30 border-b border-line bg-surface-raised px-4 py-3">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] text-ink-3">{step === "review" ? "الخطوة 1 من 2" : "الخطوة 2 من 2"}</p>
-            <h1 className="text-base font-semibold">{step === "review" ? "مراجعة الطلب" : "بيانات التواصل والتأكيد"}</h1>
+            <p className="text-[11px] text-ink-3">
+              {step === "review" ? "الخطوة 1 من 2" : "الخطوة 2 من 2"}
+            </p>
+            <h1 className="text-base font-semibold">
+              {step === "review" ? "مراجعة الطلب" : "بيانات التواصل والتأكيد"}
+            </h1>
           </div>
           {step === "review" ? (
-            <Link to="/menu" className="inline-flex min-h-11 items-center text-sm font-medium text-brand">متابعة التسوق</Link>
+            <Link to="/menu" className="inline-flex min-h-11 items-center text-sm font-medium text-brand">
+              متابعة التسوق
+            </Link>
           ) : (
-            <button type="button" onClick={() => setStep("review")} className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand">
+            <button
+              type="button"
+              onClick={() => setStep("review")}
+              className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand"
+            >
               <ArrowRight className="size-4" aria-hidden /> رجوع
             </button>
           )}
@@ -484,8 +564,14 @@ function CheckoutContent({
 
             {selection.delivery ? (
               <section className="card-surface mt-4 p-4">
-                <div className="flex items-center justify-between text-sm"><span className="font-semibold">التوصيل إلى {selection.delivery.areaNameAr}</span></div>
-                <p className="mt-1 text-xs text-ink-2">{selection.delivery.street}{selection.delivery.unitNo ? `، مبنى ${selection.delivery.unitNo}` : ""}{selection.delivery.apartment ? `، شقة ${selection.delivery.apartment}` : ""}</p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-semibold">التوصيل إلى {selection.delivery.areaNameAr}</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-2">
+                  {selection.delivery.street}
+                  {selection.delivery.unitNo ? `، مبنى ${selection.delivery.unitNo}` : ""}
+                  {selection.delivery.apartment ? `، شقة ${selection.delivery.apartment}` : ""}
+                </p>
               </section>
             ) : null}
 
@@ -497,11 +583,12 @@ function CheckoutContent({
             />
 
             <OrderSummary
-              subtotal={subtotal}
-              deliveryFee={estimatedDeliveryFee}
+              subtotal={regularSubtotal}
+              memberSavings={0}
+              deliveryFee={reviewDeliveryFee}
               discount={0}
-              vatIncluded={(subtotal + estimatedDeliveryFee) * VAT_RATE / (1 + VAT_RATE)}
-              total={subtotal + estimatedDeliveryFee}
+              vatIncluded={(regularSubtotal + reviewDeliveryFee) * VAT_RATE / (1 + VAT_RATE)}
+              total={regularSubtotal + reviewDeliveryFee}
             />
           </>
         ) : (
@@ -509,7 +596,9 @@ function CheckoutContent({
             <section className="card-surface p-4">
               <div className="mb-3">
                 <h2 className="text-sm font-semibold">بيانات التواصل</h2>
-                <p className="mt-1 text-xs text-ink-3">آخر خطوة — لن نطلب رقم الجوال قبل أن تراجع طلبك.</p>
+                <p className="mt-1 text-xs text-ink-3">
+                  آخر خطوة — لن نطلب رقم الجوال قبل أن تراجع طلبك.
+                </p>
               </div>
               <div className="grid gap-3">
                 <div>
@@ -532,6 +621,7 @@ function CheckoutContent({
                     value={phone}
                     onChange={(event) => {
                       setPhone(event.target.value);
+                      setMemberQuote(null);
                       if (couponQuote) setCouponQuote(null);
                     }}
                     placeholder="05xxxxxxxx"
@@ -539,10 +629,27 @@ function CheckoutContent({
                   />
                 </div>
               </div>
+
+              {memberQuoteLoading && phone.trim().length >= 9 ? (
+                <p className="mt-3 text-xs text-ink-3">جاري التحقق من أسعار الأعضاء…</p>
+              ) : memberQuote?.member_pricing_applied ? (
+                <div className="mt-3 flex items-start gap-3 rounded-card bg-brand-soft p-3" role="status">
+                  <BadgePercent aria-hidden className="mt-0.5 size-5 shrink-0 text-brand" />
+                  <div>
+                    <p className="text-sm font-semibold text-ink">تم تطبيق سعر الأعضاء</p>
+                    <p className="mt-1 text-xs text-ink-2 tabular-nums">
+                      وفّرت {formatSAR(memberSavings)} قبل أي كوبون إضافي.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </section>
 
             <section className="card-surface mt-4 p-4">
-              <div className="flex items-center gap-2"><TicketPercent aria-hidden className="size-4 text-brand" /><h2 className="text-sm font-semibold">كوبون خصم</h2></div>
+              <div className="flex items-center gap-2">
+                <TicketPercent aria-hidden className="size-4 text-brand" />
+                <h2 className="text-sm font-semibold">كوبون خصم</h2>
+              </div>
               <div className="mt-3 flex gap-2">
                 <input
                   value={couponCode}
@@ -568,7 +675,9 @@ function CheckoutContent({
                 <div className="mt-3 rounded-card bg-success/10 p-3 text-xs text-success">
                   <p className="flex flex-wrap items-center gap-2 font-semibold">
                     <span>{couponQuote.success_msg_ar || `تم تطبيق ${couponQuote.code}`}</span>
-                    {couponQuote.auto_applied ? <span className="rounded-pill bg-success/20 px-2 py-0.5 text-[10px] font-medium">تلقائي</span> : null}
+                    {couponQuote.auto_applied ? (
+                      <span className="rounded-pill bg-success/20 px-2 py-0.5 text-[10px] font-medium">تلقائي</span>
+                    ) : null}
                   </p>
                   {couponQuote.auto_applied ? <p className="mt-1" dir="ltr">{couponQuote.code}</p> : null}
                   <p className="mt-1 tabular-nums">وفّرت {formatSAR(totalDiscount)}</p>
@@ -578,8 +687,9 @@ function CheckoutContent({
             </section>
 
             <OrderSummary
-              subtotal={subtotal}
-              deliveryFee={estimatedDeliveryFee}
+              subtotal={regularSubtotal}
+              memberSavings={memberSavings}
+              deliveryFee={contactDeliveryFee}
               discount={totalDiscount}
               vatIncluded={vatIncluded}
               total={displayedTotal}
@@ -587,7 +697,11 @@ function CheckoutContent({
           </>
         )}
 
-        {error ? <div className="mt-4 rounded-card bg-danger/10 p-3 text-center text-sm font-medium text-danger">{error}</div> : null}
+        {error ? (
+          <div className="mt-4 rounded-card bg-danger/10 p-3 text-center text-sm font-medium text-danger">
+            {error}
+          </div>
+        ) : null}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface-raised px-4 py-3">
@@ -599,7 +713,7 @@ function CheckoutContent({
               onClick={() => setStep("contact")}
               className="min-h-11 w-full rounded-card bg-brand px-5 py-3.5 text-sm font-semibold text-brand-ink disabled:opacity-50"
             >
-              متابعة · <span className="tabular-nums">{formatSAR(subtotal + estimatedDeliveryFee)}</span>
+              متابعة · <span className="tabular-nums">{formatSAR(regularSubtotal + reviewDeliveryFee)}</span>
             </button>
           ) : (
             <button
@@ -610,9 +724,11 @@ function CheckoutContent({
             >
               {submitting
                 ? "جارٍ إرسال الطلب..."
-                : paymentMethod === "online"
-                  ? `المتابعة للدفع · ${formatSAR(displayedTotal)}`
-                  : `تأكيد الطلب · ${formatSAR(displayedTotal)}`}
+                : memberQuoteLoading
+                  ? "جاري تحديث السعر..."
+                  : paymentMethod === "online"
+                    ? `المتابعة للدفع · ${formatSAR(displayedTotal)}`
+                    : `تأكيد الطلب · ${formatSAR(displayedTotal)}`}
             </button>
           )}
         </div>
@@ -638,7 +754,9 @@ function CartItems({
             {line.image ? (
               <img src={line.image} alt={line.nameAr} className="size-full object-cover" />
             ) : (
-              <span className="flex size-full items-center justify-center text-ink-3"><ImageOff aria-hidden className="size-5" /></span>
+              <span className="flex size-full items-center justify-center text-ink-3">
+                <ImageOff aria-hidden className="size-5" />
+              </span>
             )}
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -653,13 +771,31 @@ function CartItems({
                 <Trash2 aria-hidden className="size-4" />
               </button>
             </div>
-            {line.optionNames.length > 0 ? <span className="text-xs leading-5 text-ink-2">{line.optionNames.join("، ")}</span> : null}
+            {line.optionNames.length > 0 ? (
+              <span className="text-xs leading-5 text-ink-2">{line.optionNames.join("، ")}</span>
+            ) : null}
             {line.note ? <span className="text-xs leading-5 text-ink-3">ملاحظة: {line.note}</span> : null}
             <div className="mt-1 flex items-center justify-between gap-3">
               <div className="flex items-center gap-1 rounded-pill border border-line px-1 py-1">
-                <button type="button" aria-label="تقليل" onClick={() => updateQty(line.key, -1)} className="grid size-11 place-items-center rounded-pill"><Minus aria-hidden className="size-3.5" /></button>
-                <span className="min-w-7 text-center text-xs font-semibold tabular-nums" dir="ltr">{line.quantity}</span>
-                <button type="button" aria-label="زيادة" onClick={() => updateQty(line.key, 1)} className="grid size-11 place-items-center rounded-pill"><Plus aria-hidden className="size-3.5" /></button>
+                <button
+                  type="button"
+                  aria-label="تقليل"
+                  onClick={() => updateQty(line.key, -1)}
+                  className="grid size-11 place-items-center rounded-pill"
+                >
+                  <Minus aria-hidden className="size-3.5" />
+                </button>
+                <span className="min-w-7 text-center text-xs font-semibold tabular-nums" dir="ltr">
+                  {line.quantity}
+                </span>
+                <button
+                  type="button"
+                  aria-label="زيادة"
+                  onClick={() => updateQty(line.key, 1)}
+                  className="grid size-11 place-items-center rounded-pill"
+                >
+                  <Plus aria-hidden className="size-3.5" />
+                </button>
               </div>
               <span className="text-sm font-semibold text-brand tabular-nums">{formatSAR(lineTotal(line))}</span>
             </div>
@@ -688,21 +824,65 @@ function PaymentMethodSection({
         <button
           type="button"
           onClick={() => onChange("cash")}
-          className={`flex min-h-11 items-center gap-3 rounded-card border p-3 text-start ${paymentMethod === "cash" ? "border-brand bg-brand-soft" : "border-line"}`}
+          className={`flex min-h-11 items-center gap-3 rounded-card border p-3 text-start ${
+            paymentMethod === "cash" ? "border-brand bg-brand-soft" : "border-line"
+          }`}
         >
-          <span className={`grid size-11 place-items-center rounded-pill ${paymentMethod === "cash" ? "bg-brand/10 text-brand" : "bg-surface-sunk text-ink-3"}`}><Banknote aria-hidden className="size-5" /></span>
-          <div className="flex-1"><p className="text-sm font-semibold">الدفع عند الاستلام</p><p className="mt-0.5 text-xs text-ink-3">متاح الآن</p></div>
-          <span className={`size-4 rounded-full border ${paymentMethod === "cash" ? "border-4 border-brand" : "border-line"}`} aria-label={paymentMethod === "cash" ? "محدد" : undefined} />
+          <span
+            className={`grid size-11 place-items-center rounded-pill ${
+              paymentMethod === "cash" ? "bg-brand/10 text-brand" : "bg-surface-sunk text-ink-3"
+            }`}
+          >
+            <Banknote aria-hidden className="size-5" />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">الدفع عند الاستلام</p>
+            <p className="mt-0.5 text-xs text-ink-3">متاح الآن</p>
+          </div>
+          <span
+            className={`size-4 rounded-full border ${
+              paymentMethod === "cash" ? "border-4 border-brand" : "border-line"
+            }`}
+            aria-label={paymentMethod === "cash" ? "محدد" : undefined}
+          />
         </button>
+
         <button
           type="button"
           disabled={!paymentOption || paymentLoading}
           onClick={() => paymentOption && onChange("online")}
-          className={`flex min-h-11 items-center gap-3 rounded-card border p-3 text-start disabled:cursor-not-allowed disabled:opacity-55 ${paymentMethod === "online" ? "border-brand bg-brand-soft" : "border-line"}`}
+          className={`flex min-h-11 items-center gap-3 rounded-card border p-3 text-start disabled:cursor-not-allowed disabled:opacity-55 ${
+            paymentMethod === "online" ? "border-brand bg-brand-soft" : "border-line"
+          }`}
         >
-          <span className={`grid size-11 place-items-center rounded-pill ${paymentMethod === "online" ? "bg-brand/10 text-brand" : "bg-surface-sunk text-ink-3"}`}><CreditCard aria-hidden className="size-5" /></span>
-          <div className="flex-1"><p className="text-sm font-semibold">الدفع الإلكتروني</p><p className="mt-0.5 text-xs text-ink-3">{paymentLoading ? "جاري التحقق..." : paymentOption ? `ميسر · ${paymentOption.environment === "test" ? "اختبار" : "إنتاج"}` : "غير مفعّل لهذا الفرع"}</p></div>
-          {paymentOption ? <span className={`size-4 rounded-full border ${paymentMethod === "online" ? "border-4 border-brand" : "border-line"}`} /> : <span className="rounded-pill bg-surface-sunk px-2.5 py-1 text-[10px] font-medium text-ink-3">غير متاح</span>}
+          <span
+            className={`grid size-11 place-items-center rounded-pill ${
+              paymentMethod === "online" ? "bg-brand/10 text-brand" : "bg-surface-sunk text-ink-3"
+            }`}
+          >
+            <CreditCard aria-hidden className="size-5" />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">الدفع الإلكتروني</p>
+            <p className="mt-0.5 text-xs text-ink-3">
+              {paymentLoading
+                ? "جاري التحقق..."
+                : paymentOption
+                  ? `ميسر · ${paymentOption.environment === "test" ? "اختبار" : "إنتاج"}`
+                  : "غير مفعّل لهذا الفرع"}
+            </p>
+          </div>
+          {paymentOption ? (
+            <span
+              className={`size-4 rounded-full border ${
+                paymentMethod === "online" ? "border-4 border-brand" : "border-line"
+              }`}
+            />
+          ) : (
+            <span className="rounded-pill bg-surface-sunk px-2.5 py-1 text-[10px] font-medium text-ink-3">
+              غير متاح
+            </span>
+          )}
         </button>
       </div>
     </section>
@@ -711,12 +891,14 @@ function PaymentMethodSection({
 
 function OrderSummary({
   subtotal,
+  memberSavings,
   deliveryFee,
   discount,
   vatIncluded,
   total,
 }: {
   subtotal: number;
+  memberSavings: number;
   deliveryFee: number;
   discount: number;
   vatIncluded: number;
@@ -727,7 +909,10 @@ function OrderSummary({
       <h2 className="mb-3 text-sm font-semibold">ملخص الطلب</h2>
       <div className="space-y-2 text-sm">
         <SummaryRow label="المجموع الفرعي" value={subtotal} />
-        {discount > 0 ? <SummaryRow label="الخصم" value={-discount} tone="success" /> : null}
+        {memberSavings > 0 ? (
+          <SummaryRow label="توفير سعر الأعضاء" value={-memberSavings} tone="success" />
+        ) : null}
+        {discount > 0 ? <SummaryRow label="خصم الكوبون" value={-discount} tone="success" /> : null}
         <SummaryRow label="ضريبة القيمة المضافة (15%) · مشمولة" value={vatIncluded} muted />
         <SummaryRow label="رسوم التوصيل" value={deliveryFee} />
       </div>
@@ -752,7 +937,11 @@ function SummaryRow({
 }) {
   const amount = value < 0 ? `− ${formatSAR(Math.abs(value))}` : formatSAR(value);
   return (
-    <div className={`flex items-center justify-between gap-3 ${tone === "success" ? "text-success" : muted ? "text-ink-3" : "text-ink-2"}`}>
+    <div
+      className={`flex items-center justify-between gap-3 ${
+        tone === "success" ? "text-success" : muted ? "text-ink-3" : "text-ink-2"
+      }`}
+    >
       <span>{label}</span>
       <span className="font-medium tabular-nums">{amount}</span>
     </div>

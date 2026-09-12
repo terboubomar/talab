@@ -16,6 +16,7 @@ const NAV_ITEMS: { label: string; to: string; perm: string; enabled: boolean }[]
   { label: "الاستردادات", to: "/admin/refunds", perm: "orders.refund", enabled: true },
   { label: "المنتجات", to: "/admin/products", perm: "menus.view", enabled: true },
   { label: "الكوبونات", to: "/admin/coupons", perm: "coupons.view", enabled: true },
+  { label: "نقاط الولاء", to: "/admin/loyalty", perm: "marketing.loyalty", enabled: true },
   { label: "الفروع", to: "/admin/branches", perm: "branches.view", enabled: false },
   { label: "أدوات التسويق", to: "/admin/marketing", perm: "marketing.tools", enabled: false },
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: true },

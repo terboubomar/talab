@@ -10,6 +10,12 @@ import {
   fetchWalletLedger,
   type CustomerWalletRow,
 } from "@/lib/wallet";
+import {
+  adjustPoints,
+  fetchCustomerPoints,
+  fetchPointsLedger,
+  pointsReasonLabel,
+} from "@/lib/loyalty";
 
 export const Route = createFileRoute("/_staffShell/admin/customers")({
   head: () => ({ meta: [{ title: "العملاء — طلب" }] }),
@@ -43,6 +49,8 @@ function CustomersPage() {
   const canView = can("customers.view");
   const canAdjust = can("customers.wallet.adjust");
   const canSeeLedger = canAdjust || can("customers.activity.view");
+  const canAdjustPoints = can("customers.points.adjust");
+  const canSeePointsHistory = canAdjustPoints || can("customers.activity.view");
 
   const {
     data: customers = [],
@@ -184,9 +192,12 @@ function CustomersPage() {
 
             {selected ? (
               <CustomerDetail
+                key={selected.id}
                 customer={selected}
                 canAdjust={canAdjust}
                 canSeeLedger={canSeeLedger}
+                canAdjustPoints={canAdjustPoints}
+                canSeePointsHistory={canSeePointsHistory}
                 onAdjusted={() => {
                   void queryClient.invalidateQueries({ queryKey: ["admin_customers_wallet"] });
                   void queryClient.invalidateQueries({ queryKey: ["wallet_ledger", selected.id] });
@@ -209,6 +220,251 @@ function CustomersPage() {
 }
 
 function CustomerDetail({
+  customer,
+  canAdjust,
+  canSeeLedger,
+  canAdjustPoints,
+  canSeePointsHistory,
+  onAdjusted,
+}: {
+  customer: CustomerWalletRow;
+  canAdjust: boolean;
+  canSeeLedger: boolean;
+  canAdjustPoints: boolean;
+  canSeePointsHistory: boolean;
+  onAdjusted: () => void;
+}) {
+  const [tab, setTab] = useState<"wallet" | "points">("wallet");
+
+  return (
+    <div className="space-y-4">
+      <div className="card-surface p-4">
+        <p className="text-sm font-extrabold">{customer.name || "بدون اسم"}</p>
+        <p className="text-xs text-muted-foreground" dir="ltr">
+          {customer.phone ?? "—"}
+        </p>
+        <div className="mt-3 flex gap-2">
+          {(["wallet", "points"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className={`rounded-pill px-3 py-1.5 text-xs font-extrabold ${
+                tab === key ? "bg-brand text-brand-ink" : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {key === "wallet" ? "المحفظة" : "النقاط"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "wallet" ? (
+        <WalletTab
+          customer={customer}
+          canAdjust={canAdjust}
+          canSeeLedger={canSeeLedger}
+          onAdjusted={onAdjusted}
+        />
+      ) : (
+        <PointsTab
+          customerId={customer.id}
+          canAdjustPoints={canAdjustPoints}
+          canSeePointsHistory={canSeePointsHistory}
+        />
+      )}
+    </div>
+  );
+}
+
+function PointsTab({
+  customerId,
+  canAdjustPoints,
+  canSeePointsHistory,
+}: {
+  customerId: string;
+  canAdjustPoints: boolean;
+  canSeePointsHistory: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successBalance, setSuccessBalance] = useState<number | null>(null);
+
+  const {
+    data: points,
+    isLoading: pointsLoading,
+    error: pointsError,
+  } = useQuery({
+    queryKey: ["customer_points", customerId],
+    queryFn: () => fetchCustomerPoints(customerId),
+  });
+
+  const {
+    data: ledger = [],
+    isLoading: ledgerLoading,
+    error: ledgerError,
+  } = useQuery({
+    queryKey: ["points_ledger", customerId],
+    queryFn: () => fetchPointsLedger(customerId),
+    enabled: canSeePointsHistory,
+  });
+
+  async function handleAdjustPoints(event: React.FormEvent) {
+    event.preventDefault();
+    setFormError(null);
+    setSuccessBalance(null);
+    const delta = Number(amount);
+    if (!Number.isFinite(delta) || delta === 0) {
+      setFormError("أدخل عدد نقاط غير صفري");
+      return;
+    }
+    if (reason.trim().length < 2) {
+      setFormError("أدخل سبباً واضحاً (حرفان على الأقل)");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const result = await adjustPoints(customerId, delta, reason.trim());
+      setSuccessBalance(result.balance);
+      setAmount("");
+      setReason("");
+      void queryClient.invalidateQueries({ queryKey: ["customer_points", customerId] });
+      void queryClient.invalidateQueries({ queryKey: ["points_ledger", customerId] });
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "تعذّر تعديل النقاط");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card-surface p-4">
+        <p className="text-xs font-bold text-muted-foreground">رصيد النقاط الحالي</p>
+        {pointsError ? (
+          <p className="mt-1 text-sm font-bold text-danger">تعذّر تحميل النقاط</p>
+        ) : pointsLoading ? (
+          <div className="mt-2 h-8 animate-pulse rounded-card bg-secondary opacity-60" />
+        ) : (
+          <>
+            <p className="mt-1 text-2xl font-extrabold">
+              {(points?.balance ?? 0).toLocaleString("ar-SA", { maximumFractionDigits: 2 })} نقطة
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {points?.next_expiry_at
+                ? `أقرب انتهاء صلاحية: ${formatDate(points.next_expiry_at)}`
+                : "لا توجد نقاط قاربت على الانتهاء"}
+            </p>
+          </>
+        )}
+      </div>
+
+      {canAdjustPoints ? (
+        <form onSubmit={handleAdjustPoints} className="card-surface space-y-3 p-4">
+          <p className="text-sm font-extrabold">تعديل النقاط</p>
+          <p className="text-[11px] text-muted-foreground">
+            عدد موجب = إضافة نقاط، عدد سالب = خصم نقاط.
+          </p>
+          <label className="grid gap-1 text-xs font-bold text-muted-foreground">
+            عدد النقاط
+            <input
+              type="number"
+              step="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="100 أو -100"
+              className="rounded-card border border-border bg-background px-3 py-2 text-sm font-bold text-foreground"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-bold text-muted-foreground">
+            السبب
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="تعويض عن طلب متأخر"
+              className="rounded-card border border-border bg-background px-3 py-2 text-sm font-bold text-foreground"
+            />
+          </label>
+          {formError ? <p className="text-xs font-bold text-danger">{formError}</p> : null}
+          {successBalance !== null ? (
+            <p className="text-xs font-bold text-success">
+              تم التعديل. الرصيد الجديد{" "}
+              {successBalance.toLocaleString("ar-SA", { maximumFractionDigits: 2 })} نقطة
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-card bg-brand px-4 py-2.5 text-sm font-extrabold text-brand-ink disabled:opacity-60"
+          >
+            {submitting ? "جاري التنفيذ…" : "تنفيذ التعديل"}
+          </button>
+        </form>
+      ) : null}
+
+      {canSeePointsHistory ? (
+        <div className="card-surface overflow-hidden">
+          <p className="border-b border-border px-4 py-3 text-sm font-extrabold">سجل حركات النقاط</p>
+          {ledgerError ? (
+            <p className="p-4 text-center text-xs font-bold text-danger">تعذّر تحميل السجل</p>
+          ) : ledgerLoading ? (
+            <div className="space-y-2 p-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-10 animate-pulse rounded-card bg-secondary opacity-60" />
+              ))}
+            </div>
+          ) : ledger.length === 0 ? (
+            <p className="p-4 text-center text-xs font-bold text-muted-foreground">
+              لا توجد حركات على النقاط
+            </p>
+          ) : (
+            <table className="w-full text-right text-xs">
+              <thead className="bg-secondary font-bold text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2">التاريخ</th>
+                  <th className="px-3 py-2">التغيير</th>
+                  <th className="px-3 py-2">الرصيد بعدها</th>
+                  <th className="px-3 py-2">السبب</th>
+                  <th className="px-3 py-2">المنفّذ</th>
+                  <th className="px-3 py-2">الصلاحية</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.map((entry) => (
+                  <tr key={entry.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-muted-foreground">{formatDateTime(entry.at)}</td>
+                    <td
+                      className={`px-3 py-2 font-extrabold ${entry.delta >= 0 ? "text-success" : "text-danger"}`}
+                    >
+                      {entry.delta >= 0 ? "+" : "−"}
+                      {Math.abs(entry.delta).toLocaleString("ar-SA", { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-3 py-2 font-bold">
+                      {entry.balance_after.toLocaleString("ar-SA", { maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {pointsReasonLabel(entry.reason)}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{entry.actor_name ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {entry.delta > 0 && entry.expires_at ? formatDate(entry.expires_at) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WalletTab({
   customer,
   canAdjust,
   canSeeLedger,
@@ -265,11 +521,7 @@ function CustomerDetail({
   return (
     <div className="space-y-4">
       <div className="card-surface p-4">
-        <p className="text-sm font-extrabold">{customer.name || "بدون اسم"}</p>
-        <p className="text-xs text-muted-foreground" dir="ltr">
-          {customer.phone ?? "—"}
-        </p>
-        <div className="mt-3 rounded-card bg-secondary p-4">
+        <div className="rounded-card bg-secondary p-4">
           <p className="text-xs font-bold text-muted-foreground">رصيد المحفظة الحالي</p>
           <p className="mt-1 text-2xl font-extrabold">{formatSAR(customer.balance)}</p>
         </div>

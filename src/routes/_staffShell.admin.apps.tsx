@@ -43,6 +43,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "أخرى",
 };
 
+function marketplaceDescription(integration: IntegrationProvider) {
+  const configured = integration.config_schema["description_ar"];
+  if (typeof configured === "string" && configured.trim()) return configured;
+  if (integration.provider_slug === "foodics") return "مزامنة القائمة والفروع وإرسال طلبات طلب إلى Foodics.";
+  if (integration.category === "delivery") return "إسناد طلبات التوصيل المباشرة إلى مزود الميل الأخير ومتابعة حالة التوصيل من طلب.";
+  if (integration.category === "pos") return "تكامل نقطة بيع لإدارة تدفق البيانات والطلبات من خلال متجر التطبيقات.";
+  return "تكامل خارجي لإضافة قدرات جديدة إلى حساب المطعم من خلال متجر التطبيقات.";
+}
+
 function AppsPage() {
   const { loading: permissionsLoading, can } = usePermissions();
   const canManage = can("integrations.manage");
@@ -210,11 +219,7 @@ function MarketplaceCard({ integration, onOpen }: { integration: IntegrationProv
         <StatusBadge status={integration.integration_status} />
       </div>
 
-      <p className="mt-4 text-xs leading-6 text-muted-foreground">
-        {integration.provider_slug === "foodics"
-          ? "مزامنة القائمة والفروع وإرسال طلبات طلب إلى Foodics."
-          : "تكامل نقطة بيع لإدارة تدفق البيانات والطلبات من خلال متجر التطبيقات."}
-      </p>
+      <p className="mt-4 text-xs leading-6 text-muted-foreground">{marketplaceDescription(integration)}</p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {capabilities.map((capability) => (
@@ -576,6 +581,11 @@ function FoodicsWorkspace({ integration }: { integration: IntegrationProvider })
 }
 
 function ComingSoonWorkspace({ integration }: { integration: IntegrationProvider }) {
+  const isCareem = integration.provider_slug === "careem";
+  const docs = typeof integration.config_schema["developer_hub_url"] === "string"
+    ? String(integration.config_schema["developer_hub_url"])
+    : null;
+
   return (
     <section className="card-surface border border-border p-8 text-center">
       <div className="flex justify-center">
@@ -583,10 +593,32 @@ function ComingSoonWorkspace({ integration }: { integration: IntegrationProvider
       </div>
       <h2 className="mt-4 text-lg font-extrabold">{integration.name_ar}</h2>
       <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-muted-foreground">
-        صفحة التطبيق جاهزة داخل بنية متجر التطبيقات. إعداد الاتصال لهذا المزود سيُضاف عند تنفيذ تكامله في خارطة المشروع.
+        {isCareem
+          ? "بنية طلب جاهزة لإسناد الطلب إلى مزود توصيل خارجي ومتابعة حالته. تفعيل Careem الفعلي يحتاج بيانات اعتماد وعقد API من Careem Developer Hub؛ لن نخمن حقول الاعتماد أو مسارات API غير المنشورة."
+          : "صفحة التطبيق جاهزة داخل بنية متجر التطبيقات. إعداد الاتصال لهذا المزود سيُضاف عند تنفيذ تكامله في خارطة المشروع."}
       </p>
+      {isCareem ? (
+        <div className="mx-auto mt-5 max-w-xl rounded-card border border-border bg-secondary/30 p-4 text-right">
+          <p className="text-xs font-extrabold">جاهزية التكامل</p>
+          <div className="mt-3 grid gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
+            <span className="rounded-card bg-background p-2">إسناد شركة التوصيل ✅</span>
+            <span className="rounded-card bg-background p-2">التتبع ضمن التصميم ✅</span>
+            <span className="rounded-card bg-background p-2">Sandbox متاح من Careem ✅</span>
+          </div>
+          {docs ? (
+            <a
+              href={docs}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-4 inline-flex rounded-card bg-brand px-4 py-2.5 text-xs font-bold text-brand-ink"
+            >
+              فتح Careem Developer Hub
+            </a>
+          ) : null}
+        </div>
+      ) : null}
       <span className="mt-5 inline-flex rounded-pill bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground">
-        قريباً
+        {isCareem ? "بانتظار اعتماد Careem API" : "قريباً"}
       </span>
     </section>
   );
@@ -761,5 +793,8 @@ function statusLabel(status: IntegrationProvider["integration_status"]) {
 function capabilityLabel(value: string) {
   if (value === "menu_pull") return "سحب القائمة";
   if (value === "order_push") return "إرسال الطلبات";
+  if (value === "delivery_dispatch") return "إسناد التوصيل";
+  if (value === "delivery_tracking") return "تتبع التوصيل";
+  if (value === "sandbox") return "Sandbox";
   return value;
 }

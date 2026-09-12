@@ -43,6 +43,17 @@ export type StorefrontPaymentOption = {
   supported_networks: string[];
 };
 
+export type StorefrontTrackingIntegration = {
+  provider_slug:
+    | "meta-pixel"
+    | "tiktok-pixel"
+    | "snapchat-pixel"
+    | "google-tag-manager"
+    | "google-analytics"
+    | string;
+  settings: Record<string, unknown>;
+};
+
 export const ORDER_TYPE_LABEL: Record<OrderType, string> = {
   pickup: "استلام",
   delivery: "توصيل",
@@ -86,6 +97,21 @@ export const bannersQuery = queryOptions({
   },
   enabled: Boolean(supabase),
   retry: false,
+});
+
+export const trackingIntegrationsQuery = queryOptions({
+  queryKey: ["storefront_tracking_integrations", TENANT_SLUG],
+  queryFn: async (): Promise<StorefrontTrackingIntegration[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.rpc("storefront_tracking_integrations", {
+      p_tenant_slug: TENANT_SLUG,
+    });
+    if (error) return [];
+    return Array.isArray(data) ? (data as StorefrontTrackingIntegration[]) : [];
+  },
+  enabled: Boolean(supabase),
+  retry: false,
+  staleTime: 60_000,
 });
 
 export type Selection = {

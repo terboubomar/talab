@@ -23,6 +23,16 @@ export type WalletLedgerEntry = {
   at: string;
 };
 
+const WALLET_REASON_LABELS: Record<string, string> = {
+  "cashback reward": "مكافأة كاش باك",
+};
+
+/** Arabic label for a backend wallet ledger reason; falls back to the raw value. */
+export function walletReasonLabel(reason: string | null): string {
+  if (!reason) return "—";
+  return WALLET_REASON_LABELS[reason.trim().toLowerCase()] ?? reason;
+}
+
 type CustomerRow = {
   id: string;
   name: string | null;

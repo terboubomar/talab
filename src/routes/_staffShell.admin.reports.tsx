@@ -1,13 +1,14 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Download, LockKeyhole } from "lucide-react";
+import { Download, FileSpreadsheet, LockKeyhole } from "lucide-react";
 
 import { formatSAR } from "@/lib/menu";
 import {
   fetchReportCenterSupport,
   fetchSalesDetailReport,
   downloadExcel,
+  downloadExcelWorkbook,
   type ReportCenterSupport,
   type SalesDetailReport,
 } from "@/lib/report-center";
@@ -59,6 +60,7 @@ function ReportsCenterPage() {
   const [to, setTo] = useState(today);
   const [branchId, setBranchId] = useState("");
   const [reportKey, setReportKey] = useState<ReportKey>("orders");
+  const [exportAllBusy, setExportAllBusy] = useState(false);
 
   const validRange = Boolean(from && to && from <= to);
   const orderQuery = useQuery({
@@ -89,7 +91,41 @@ function ReportsCenterPage() {
   function exportCurrent() {
     if (!selected.available || !orderQuery.data || !supportQuery.data) return;
     const rows = exportRows(reportKey, orderQuery.data, supportQuery.data, detailQuery.data);
-    if (rows.length) downloadExcel(`talab-${reportKey}-${from}-${to}`, rows);
+    if (rows.length) downloadExcel(`talab-${reportKey}-${from}-${to}`, rows, selected.label);
+  }
+
+  async function exportAllReports() {
+    if (!orderQuery.data || !supportQuery.data || exportAllBusy) return;
+    setExportAllBusy(true);
+    try {
+      const detail = detailQuery.data ?? await fetchSalesDetailReport(from, to, branchId || null);
+      const selectedBranch = branchId
+        ? orderQuery.data.branches.find((branch) => branch.id === branchId)?.name ?? branchId
+        : "كل الفروع المتاحة";
+      const metadata = [{
+        "الفترة من": from,
+        "الفترة إلى": to,
+        "الفرع": selectedBranch,
+        "تاريخ التصدير": new Intl.DateTimeFormat("ar-SA", {
+          timeZone: "Asia/Riyadh",
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date()),
+      }];
+      const sheets = REPORTS.filter((report) => report.available).map((report) => {
+        const rows = exportRows(report.key, orderQuery.data!, supportQuery.data!, detail);
+        return {
+          name: report.label,
+          rows: rows.length ? rows : [{ الحالة: "لا توجد بيانات في الفترة المحددة" }],
+        };
+      });
+      downloadExcelWorkbook(`talab-all-reports-${from}-${to}`, [
+        { name: "ملخص التصدير", rows: metadata },
+        ...sheets,
+      ]);
+    } finally {
+      setExportAllBusy(false);
+    }
   }
 
   return (
@@ -100,9 +136,14 @@ function ReportsCenterPage() {
             <h1 className="text-lg font-extrabold">مركز التقارير</h1>
             <p className="mt-1 text-xs text-muted-foreground">12 تقريراً حسب هيكل المشروع · الفترات بتوقيت الرياض · صلاحيات الفروع مطبقة من قاعدة البيانات</p>
           </div>
-          <button type="button" onClick={exportCurrent} disabled={!selected.available || loading} className="inline-flex items-center gap-2 rounded-card border border-border px-4 py-2.5 text-xs font-bold hover:bg-secondary disabled:opacity-40">
-            <Download className="size-4" /> تحميل Excel
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={exportCurrent} disabled={!selected.available || loading || exportAllBusy} className="inline-flex items-center gap-2 rounded-card border border-border px-4 py-2.5 text-xs font-bold hover:bg-secondary disabled:opacity-40">
+              <Download className="size-4" /> تحميل التقرير Excel
+            </button>
+            <button type="button" onClick={exportAllReports} disabled={loading || exportAllBusy || !orderQuery.data || !supportQuery.data} className="inline-flex items-center gap-2 rounded-card bg-brand px-4 py-2.5 text-xs font-bold text-brand-ink hover:opacity-90 disabled:opacity-40">
+              <FileSpreadsheet className="size-4" /> {exportAllBusy ? "جاري تجهيز الملف…" : "تحميل كل التقارير"}
+            </button>
+          </div>
         </div>
       </header>
 

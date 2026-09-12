@@ -4,9 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Download, LockKeyhole } from "lucide-react";
 
 import { formatSAR } from "@/lib/menu";
-import { fetchReportCenterSupport, downloadExcel, type ReportCenterSupport } from "@/lib/report-center";
+import {
+  fetchReportCenterSupport,
+  fetchSalesDetailReport,
+  downloadExcel,
+  type ReportCenterSupport,
+  type SalesDetailReport,
+} from "@/lib/report-center";
 import { fetchOrderReport, type OrderReport } from "@/lib/reports";
-import { ORDER_TYPE_LABEL, STATUS_LABEL, type OrderStatus, type OrderType } from "@/lib/staff";
+import { PAYMENT_STATUS_LABEL, type PaymentStatus } from "@/lib/payments";
+import { ORDER_SOURCE_LABEL, ORDER_TYPE_LABEL, STATUS_LABEL, type OrderStatus, type OrderType } from "@/lib/staff";
 
 export const Route = createFileRoute("/_staffShell/admin/reports")({
   head: () => ({ meta: [{ title: "مركز التقارير — طلب" }] }),
@@ -22,7 +29,7 @@ const REPORTS: Array<{ key: ReportKey; label: string; group: string; available: 
   { key: "orders", label: "الطلبات", group: "المبيعات", available: true, description: "الطلبات والحالات والمبيعات والاستردادات" },
   { key: "sales_period", label: "المبيعات حسب الفترة", group: "المبيعات", available: true, description: "المبيعات اليومية ومتوسط قيمة الطلب" },
   { key: "sales_location", label: "المبيعات حسب الموقع", group: "المبيعات", available: true, description: "مقارنة الفروع والمواقع" },
-  { key: "sales_details", label: "تفاصيل المبيعات", group: "المبيعات", available: true, description: "نوع الطلب والخصومات والضريبة والتوصيل" },
+  { key: "sales_details", label: "تفاصيل المبيعات", group: "المبيعات", available: true, description: "تفاصيل كل طلب مع المصدر والدفع وموظف خدمة العملاء" },
   { key: "driver", label: "السائقين", group: "التشغيل", available: true, description: "التوصيلات والمبيعات لكل سائق" },
   { key: "customers", label: "العملاء", group: "العملاء", available: true, description: "أفضل العملاء وعدد الطلبات والإنفاق" },
   { key: "app_downloads", label: "تحميلات التطبيق", group: "العملاء", available: false, description: "يتطلب وحدة تطبيقات العميل" },
@@ -64,16 +71,24 @@ function ReportsCenterPage() {
     queryFn: () => fetchReportCenterSupport(from, to, branchId || null),
     enabled: validRange,
   });
+  const detailQuery = useQuery({
+    queryKey: ["sales_detail_report", from, to, branchId],
+    queryFn: () => fetchSalesDetailReport(from, to, branchId || null),
+    enabled: validRange && reportKey === "sales_details",
+  });
 
   const selected = REPORTS.find((item) => item.key === reportKey) ?? REPORTS[0]!;
-  const loading = orderQuery.isLoading || supportQuery.isLoading;
-  const error = orderQuery.error || supportQuery.error;
+  const loading = orderQuery.isLoading || supportQuery.isLoading || (reportKey === "sales_details" && detailQuery.isLoading);
+  const error = orderQuery.error || supportQuery.error || (reportKey === "sales_details" ? detailQuery.error : null);
 
-  function preset(days: number) { setTo(today); setFrom(addDays(today, -(days - 1))); }
+  function preset(days: number) {
+    setTo(today);
+    setFrom(addDays(today, -(days - 1)));
+  }
 
   function exportCurrent() {
     if (!selected.available || !orderQuery.data || !supportQuery.data) return;
-    const rows = exportRows(reportKey, orderQuery.data, supportQuery.data);
+    const rows = exportRows(reportKey, orderQuery.data, supportQuery.data, detailQuery.data);
     if (rows.length) downloadExcel(`talab-${reportKey}-${from}-${to}`, rows);
   }
 
@@ -81,8 +96,13 @@ function ReportsCenterPage() {
     <main className="min-h-screen pb-12">
       <header className="border-b border-border bg-background px-5 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><h1 className="text-lg font-extrabold">مركز التقارير</h1><p className="mt-1 text-xs text-muted-foreground">12 تقريراً حسب هيكل المشروع · الفترات بتوقيت الرياض · صلاحيات الفروع مطبقة من قاعدة البيانات</p></div>
-          <button type="button" onClick={exportCurrent} disabled={!selected.available || loading} className="inline-flex items-center gap-2 rounded-card border border-border px-4 py-2.5 text-xs font-bold hover:bg-secondary disabled:opacity-40"><Download className="size-4" /> تحميل Excel</button>
+          <div>
+            <h1 className="text-lg font-extrabold">مركز التقارير</h1>
+            <p className="mt-1 text-xs text-muted-foreground">12 تقريراً حسب هيكل المشروع · الفترات بتوقيت الرياض · صلاحيات الفروع مطبقة من قاعدة البيانات</p>
+          </div>
+          <button type="button" onClick={exportCurrent} disabled={!selected.available || loading} className="inline-flex items-center gap-2 rounded-card border border-border px-4 py-2.5 text-xs font-bold hover:bg-secondary disabled:opacity-40">
+            <Download className="size-4" /> تحميل Excel
+          </button>
         </div>
       </header>
 
@@ -118,18 +138,20 @@ function ReportsCenterPage() {
           </section>
 
           {error ? <div className="rounded-card border border-danger/30 bg-danger/10 p-4 text-sm font-bold text-danger">تعذّر تحميل التقرير. تأكد من الصلاحيات والفترة.</div> : null}
-          {loading ? <Loading /> : !selected.available ? <Unavailable reportKey={reportKey} /> : orderQuery.data && supportQuery.data ? <ReportBody reportKey={reportKey} order={orderQuery.data} support={supportQuery.data} branchFiltered={Boolean(branchId)} /> : null}
+          {loading ? <Loading /> : !selected.available ? <Unavailable reportKey={reportKey} /> : orderQuery.data && supportQuery.data ? (
+            <ReportBody reportKey={reportKey} order={orderQuery.data} support={supportQuery.data} detail={detailQuery.data ?? null} branchFiltered={Boolean(branchId)} />
+          ) : null}
         </div>
       </div>
     </main>
   );
 }
 
-function ReportBody({ reportKey, order, support, branchFiltered }: { reportKey: ReportKey; order: OrderReport; support: ReportCenterSupport; branchFiltered: boolean }) {
+function ReportBody({ reportKey, order, support, detail, branchFiltered }: { reportKey: ReportKey; order: OrderReport; support: ReportCenterSupport; detail: SalesDetailReport | null; branchFiltered: boolean }) {
   if (reportKey === "orders") return <><Kpis order={order} /><Panel title="حالات الطلبات"><Table headers={["الحالة", "الطلبات"]} rows={order.by_status.map((row) => [STATUS_LABEL[row.status as OrderStatus] ?? row.status, row.orders])} /></Panel></>;
   if (reportKey === "sales_period") return <><Kpis order={order} /><DailyBars rows={order.by_day} /><Panel title="المبيعات اليومية"><Table headers={["التاريخ", "الطلبات", "المكتملة", "الإجمالي", "الاسترداد", "الصافي"]} rows={order.by_day.map((row) => [row.day,row.orders,row.completed_orders,formatSAR(Number(row.sales)),formatSAR(Number(row.refunds)),formatSAR(Number(row.net_sales))])} /></Panel></>;
   if (reportKey === "sales_location") return <Panel title="الأداء حسب الفرع"><Table headers={["الفرع", "الطلبات", "المكتملة", "المبيعات", "الاسترداد", "الصافي"]} rows={order.by_branch.map((row) => [row.branch_name,row.orders,row.completed_orders,formatSAR(Number(row.sales)),formatSAR(Number(row.refunds)),formatSAR(Number(row.net_sales))])} /></Panel>;
-  if (reportKey === "sales_details") return <div className="grid gap-4 xl:grid-cols-2"><Panel title="حسب نوع الطلب"><Table headers={["النوع", "الطلبات", "المكتملة", "الصافي"]} rows={order.by_order_type.map((row) => [ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type,row.orders,row.completed_orders,formatSAR(Number(row.net_sales))])} /></Panel><Panel title="التفاصيل المالية"><MoneyRows order={order} /></Panel></div>;
+  if (reportKey === "sales_details") return <SalesDetails order={order} detail={detail} />;
   if (reportKey === "driver") return <Panel title="أداء السائقين"><Table headers={["السائق", "التوصيلات المكتملة", "قيمة الطلبات", "آخر توصيل"]} rows={support.drivers.map((row) => [row.driver_name,row.orders,formatSAR(Number(row.sales)),formatDate(row.last_delivery_at)])} empty="لا توجد توصيلات مسندة لسائقين في الفترة" /></Panel>;
   if (reportKey === "customers") return <Panel title="أفضل العملاء"><Table headers={["العميل", "الجوال", "الطلبات", "الإنفاق", "متوسط الطلب", "آخر طلب"]} rows={support.customers.map((row) => [row.name,row.phone,row.orders,formatSAR(Number(row.sales)),formatSAR(Number(row.average_order_value)),formatDate(row.last_order_at)])} empty="لا توجد طلبات مكتملة في الفترة" /></Panel>;
   if (reportKey === "wallet" || reportKey === "wallet_log") return <><LedgerNotice branchFiltered={branchFiltered} /><LedgerKpis kind="wallet" support={support} /><Panel title="حركة المحفظة اليومية"><Table headers={["التاريخ", "الإيداعات", "الخصومات", "الحركات"]} rows={support.wallet_by_day.map((row) => [String(row.day).slice(0,10),formatSAR(Number(row.credits)),formatSAR(Number(row.debits)),row.movements])} empty="لا توجد حركات محفظة في الفترة" /></Panel></>;
@@ -137,7 +159,42 @@ function ReportBody({ reportKey, order, support, branchFiltered }: { reportKey: 
   return null;
 }
 
-function Kpis({ order }: { order: OrderReport }) { return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Kpi label="صافي المبيعات" value={formatSAR(Number(order.summary.net_sales))} /><Kpi label="المكتملة" value={String(order.summary.completed_orders)} /><Kpi label="متوسط الطلب" value={formatSAR(Number(order.summary.average_order_value))} /><Kpi label="الاستردادات" value={formatSAR(Number(order.summary.refunds))} /><Kpi label="نسبة الإلغاء" value={`${Number(order.summary.cancellation_rate).toFixed(1)}%`} /></div>; }
+function SalesDetails({ order, detail }: { order: OrderReport; detail: SalesDetailReport | null }) {
+  if (!detail) return <Loading />;
+  return (
+    <div className="space-y-4">
+      <Kpis order={order} />
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Panel title="حسب نوع الطلب"><Table headers={["النوع", "الطلبات", "المكتملة", "الصافي"]} rows={order.by_order_type.map((row) => [ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type,row.orders,row.completed_orders,formatSAR(Number(row.net_sales))])} /></Panel>
+        <Panel title="حسب مصدر الطلب"><Table headers={["المصدر", "الطلبات", "المكتملة", "المبيعات"]} rows={detail.by_source.map((row) => [ORDER_SOURCE_LABEL[row.source] ?? row.source,row.orders,row.completed_orders,formatSAR(Number(row.sales))])} /></Panel>
+        <Panel title="حسب طريقة الدفع"><Table headers={["طريقة الدفع", "الطلبات", "المكتملة", "المبيعات"]} rows={detail.by_payment_method.map((row) => [row.payment_method === "online" ? "دفع إلكتروني" : "الدفع عند الاستلام",row.orders,row.completed_orders,formatSAR(Number(row.sales))])} /></Panel>
+      </div>
+      <Panel title={`تفاصيل الطلبات (${detail.total_rows})`}>
+        {detail.truncated ? <p className="mb-3 rounded-card bg-secondary px-3 py-2 text-[11px] font-bold text-muted-foreground">الفترة تحتوي أكثر من 1000 طلب. يعرض هذا الجدول أحدث 1000 طلب للحفاظ على سرعة لوحة التحكم.</p> : null}
+        <Table
+          headers={["الطلب", "التاريخ", "الفرع", "العميل", "النوع", "الحالة", "المصدر", "موظف خدمة العملاء", "الدفع", "الإجمالي"]}
+          rows={detail.orders.map((row) => [
+            `#${row.id.slice(0,8)}`,
+            formatDateTime(row.placed_at),
+            row.branch_name,
+            row.customer_name || "—",
+            ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type,
+            STATUS_LABEL[row.status as OrderStatus] ?? row.status,
+            ORDER_SOURCE_LABEL[row.source] ?? row.source,
+            row.agent_name ?? "—",
+            row.payment_method === "online" ? PAYMENT_STATUS_LABEL[row.payment_status as PaymentStatus] ?? "دفع إلكتروني" : "عند الاستلام",
+            formatSAR(Number(row.total)),
+          ])}
+          empty="لا توجد طلبات في الفترة"
+        />
+      </Panel>
+    </div>
+  );
+}
+
+function Kpis({ order }: { order: OrderReport }) {
+  return <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Kpi label="صافي المبيعات" value={formatSAR(Number(order.summary.net_sales))} /><Kpi label="المكتملة" value={String(order.summary.completed_orders)} /><Kpi label="متوسط الطلب" value={formatSAR(Number(order.summary.average_order_value))} /><Kpi label="الاستردادات" value={formatSAR(Number(order.summary.refunds))} /><Kpi label="نسبة الإلغاء" value={`${Number(order.summary.cancellation_rate).toFixed(1)}%`} /></div>;
+}
 function Kpi({ label, value }: { label: string; value: string }) { return <div className="card-surface border border-border p-4"><p className="text-xs font-bold text-muted-foreground">{label}</p><p className="mt-2 text-xl font-extrabold">{value}</p></div>; }
 
 function DailyBars({ rows }: { rows: OrderReport["by_day"] }) {
@@ -151,9 +208,6 @@ function LedgerKpis({ kind, support }: { kind: "wallet" | "points"; support: Rep
 }
 function LedgerNotice({ branchFiltered }: { branchFiltered: boolean }) { return branchFiltered ? <p className="rounded-card border border-border bg-secondary/60 px-4 py-3 text-xs font-bold text-muted-foreground">فلتر الفرع لا يغيّر هذا التقرير حالياً لأن سجلات المحفظة والنقاط محفوظة على مستوى العميل/المستأجر ولا تحمل branch_id.</p> : null; }
 
-function MoneyRows({ order }: { order: OrderReport }) { return <dl className="divide-y divide-border text-sm"><Money label="الإجمالي" value={order.summary.gross_sales} /><Money label="الخصومات" value={order.summary.discounts} /><Money label="الضريبة" value={order.summary.tax_total} /><Money label="رسوم التوصيل" value={order.summary.delivery_fees} /><Money label="الاستردادات" value={order.summary.refunds} /><Money label="الصافي" value={order.summary.net_sales} strong /></dl>; }
-function Money({ label, value, strong }: { label: string; value: number; strong?: boolean }) { return <div className={`flex justify-between py-3 ${strong ? "font-extrabold" : ""}`}><dt>{label}</dt><dd>{formatSAR(Number(value))}</dd></div>; }
-
 function Panel({ title, children }: { title: string; children: ReactNode }) { return <section className="card-surface overflow-hidden border border-border"><div className="border-b border-border px-4 py-3"><h3 className="text-sm font-extrabold">{title}</h3></div><div className="p-4">{children}</div></section>; }
 function Table({ headers, rows, empty = "لا توجد بيانات في الفترة" }: { headers: string[]; rows: Array<Array<ReactNode>>; empty?: string }) { if (!rows.length) return <p className="py-8 text-center text-sm text-muted-foreground">{empty}</p>; return <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead><tr className="bg-secondary text-xs text-muted-foreground">{headers.map((h) => <th key={h} className="px-3 py-2.5 text-start">{h}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.map((row,i) => <tr key={i}>{row.map((cell,j) => <td key={j} className="px-3 py-2.5">{cell}</td>)}</tr>)}</tbody></table></div>; }
 
@@ -162,12 +216,30 @@ function Loading() { return <div className="grid gap-3 md:grid-cols-3">{[0,1,2,3
 function Filter({ label, children }: { label: string; children: ReactNode }) { return <label className="grid gap-1 text-xs font-bold text-muted-foreground"><span>{label}</span>{children}</label>; }
 function Preset({ children, onClick }: { children: ReactNode; onClick: () => void }) { return <button type="button" onClick={onClick} className="rounded-pill border border-border px-3 py-2 text-xs font-bold hover:bg-secondary">{children}</button>; }
 function formatDate(value: string | null) { return value ? new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "medium" }).format(new Date(value)) : "—"; }
+function formatDateTime(value: string | null) { return value ? new Intl.DateTimeFormat("ar-SA", { timeZone: "Asia/Riyadh", dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "—"; }
 
-function exportRows(key: ReportKey, order: OrderReport, support: ReportCenterSupport): Array<Record<string, string | number | null | undefined>> {
+function exportRows(key: ReportKey, order: OrderReport, support: ReportCenterSupport, detail?: SalesDetailReport): Array<Record<string, string | number | null | undefined>> {
   if (key === "orders") return order.by_status.map((row) => ({ الحالة: STATUS_LABEL[row.status as OrderStatus] ?? row.status, الطلبات: row.orders }));
   if (key === "sales_period") return order.by_day.map((row) => ({ التاريخ: row.day, الطلبات: row.orders, المكتملة: row.completed_orders, المبيعات: row.sales, الاستردادات: row.refunds, الصافي: row.net_sales }));
   if (key === "sales_location") return order.by_branch.map((row) => ({ الفرع: row.branch_name, الطلبات: row.orders, المكتملة: row.completed_orders, المبيعات: row.sales, الاستردادات: row.refunds, الصافي: row.net_sales }));
-  if (key === "sales_details") return order.by_order_type.map((row) => ({ النوع: ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type, الطلبات: row.orders, المكتملة: row.completed_orders, المبيعات: row.sales, الاستردادات: row.refunds, الصافي: row.net_sales }));
+  if (key === "sales_details") return (detail?.orders ?? []).map((row) => ({
+    رقم_الطلب: row.id,
+    التاريخ: row.placed_at,
+    الفرع: row.branch_name,
+    العميل: row.customer_name,
+    الجوال: row.customer_phone,
+    نوع_الطلب: ORDER_TYPE_LABEL[row.order_type as OrderType] ?? row.order_type,
+    الحالة: STATUS_LABEL[row.status as OrderStatus] ?? row.status,
+    المصدر: ORDER_SOURCE_LABEL[row.source] ?? row.source,
+    موظف_خدمة_العملاء: row.agent_name,
+    طريقة_الدفع: row.payment_method === "online" ? "إلكتروني" : "عند الاستلام",
+    حالة_الدفع: PAYMENT_STATUS_LABEL[row.payment_status as PaymentStatus] ?? row.payment_status,
+    قبل_الخصم: row.subtotal,
+    الخصم: row.discount_total,
+    رسوم_التوصيل: row.delivery_fee,
+    الضريبة: row.tax_total,
+    الإجمالي: row.total,
+  }));
   if (key === "driver") return support.drivers.map((row) => ({ السائق: row.driver_name, التوصيلات: row.orders, المبيعات: row.sales, آخر_توصيل: row.last_delivery_at }));
   if (key === "customers") return support.customers.map((row) => ({ العميل: row.name, الجوال: row.phone, الطلبات: row.orders, الإنفاق: row.sales, متوسط_الطلب: row.average_order_value, آخر_طلب: row.last_order_at }));
   if (key === "wallet" || key === "wallet_log") return support.wallet_by_day.map((row) => ({ التاريخ: String(row.day).slice(0,10), الإيداعات: row.credits, الخصومات: row.debits, الحركات: row.movements }));

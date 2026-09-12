@@ -60,10 +60,15 @@ export function StorefrontOrderContextModal({
   const dialogRef = useRef<HTMLElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const [step, setStep] = useState<Step>("branch");
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [query, setQuery] = useState("");
   const [city, setCity] = useState<string>("all");
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const cities = useMemo(() => {
     const unique = new Set<string>();
@@ -111,7 +116,7 @@ export function StorefrontOrderContextModal({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -139,7 +144,7 @@ export function StorefrontOrderContextModal({
       document.removeEventListener("keydown", onKeyDown);
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -330,7 +335,7 @@ export function StorefrontOrderContextModal({
 
             <div className="mb-5 rounded-card bg-surface-sunk p-4">
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-pill bg-surface text-brand shadow-1">
+                <span className="grid size-10 place-items-center rounded-pill bg-surface text-brand shadow-card">
                   <Store className="size-5" aria-hidden />
                 </span>
                 <div className="min-w-0">

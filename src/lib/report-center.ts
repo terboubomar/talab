@@ -54,6 +54,22 @@ export function downloadCsv(filename: string, rows: Array<Record<string, string 
   const escape = (value: unknown) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const csv = `\uFEFF${headers.map(escape).join(",")}\n${rows.map((row) => headers.map((header) => escape(row[header])).join(",")).join("\n")}`;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  triggerDownload(blob, filename.endsWith(".csv") ? filename : `${filename}.csv`);
+}
+
+export function downloadExcel(filename: string, rows: Array<Record<string, string | number | null | undefined>>) {
+  if (typeof window === "undefined" || rows.length === 0) return;
+  const headers = Object.keys(rows[0] ?? {});
+  const escapeHtml = (value: unknown) => String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  const table = `<!doctype html><html dir="rtl"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((header) => `<td>${escapeHtml(row[header])}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`;
+  const blob = new Blob(["\uFEFF", table], { type: "application/vnd.ms-excel;charset=utf-8" });
+  triggerDownload(blob, filename.endsWith(".xls") ? filename : `${filename}.xls`);
+}
+
+function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

@@ -55,5 +55,9 @@ export async function fetchDashboardStats(input: {
   });
 
   if (error) throw error;
-  return data as DashboardData;
+  const result = data as DashboardData;
+  return {
+    ...result,
+    chart: result.chart.map((row) => ({ ...row, day: row.day.slice(0, 10) })),
+  };
 }

@@ -17,10 +17,12 @@ import {
 import {
   formatCalories,
   formatSAR,
+  productCrossSellsQuery,
   productDetailQuery,
   type CartLine,
   type ModifierGroup,
   type Product,
+  type ProductCrossSell,
 } from "@/lib/menu";
 
 type Props = {
@@ -28,6 +30,7 @@ type Props = {
   branchId?: string | null;
   onClose: () => void;
   onAdd: (line: CartLine) => void;
+  onOpenSuggested?: (productId: string) => void;
 };
 
 function groupsOf(product: Product): ModifierGroup[] {
@@ -70,8 +73,9 @@ function hasNutrition(values: Array<number | null | undefined>) {
   return values.some((value) => value != null);
 }
 
-export function ProductSheet({ product, branchId = null, onClose, onAdd }: Props) {
+export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenSuggested }: Props) {
   const { data: detail, isLoading: detailLoading } = useQuery(productDetailQuery(product.id, branchId));
+  const { data: crossSells = [] } = useQuery(productCrossSellsQuery(product.id, branchId));
   const current = detail ?? product;
   const groups = useMemo(() => groupsOf(current), [current]);
   const step = current.qty_step && current.qty_step > 0 ? current.qty_step : 1;
@@ -324,6 +328,20 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd }: Props
             </section>
           ) : null}
 
+          {crossSells.length > 0 && onOpenSuggested ? (
+            <section className="mt-6" aria-labelledby={`cross-sells-${product.id}`}>
+              <div>
+                <h3 id={`cross-sells-${product.id}`} className="text-sm font-semibold text-ink">أضف مع طلبك</h3>
+                <p className="mt-0.5 text-xs text-ink-3">اقتراحات مختارة لهذا الصنف</p>
+              </div>
+              <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
+                {crossSells.map((suggested) => (
+                  <CrossSellCard key={suggested.id} product={suggested} onOpen={() => onOpenSuggested(suggested.id)} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {groups.map((group) => {
             const picked = selected[group.id] ?? [];
             const cap = group.max && group.max > 0 ? group.max : (group.options ?? []).length;
@@ -379,6 +397,31 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd }: Props
         </div>
       </div>
     </div>
+  );
+}
+
+function CrossSellCard({ product, onOpen }: { product: ProductCrossSell; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-[148px] shrink-0 overflow-hidden rounded-card border border-line bg-surface text-start transition-colors hover:border-brand/40"
+    >
+      <div className="aspect-square w-full bg-surface-sunk">
+        {product.image ? (
+          <img src={product.image} alt={product.name_ar} loading="lazy" className="size-full object-cover" />
+        ) : (
+          <span className="grid size-full place-items-center text-ink-3"><ImageOff className="size-6" aria-hidden /></span>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="line-clamp-2 min-h-10 text-xs font-semibold leading-5 text-ink">{product.name_ar}</p>
+        <div className="mt-2 flex items-end justify-between gap-2">
+          <span className="text-xs font-semibold text-brand tabular-nums">{formatSAR(Number(product.price))}</span>
+          {product.has_options ? <span className="rounded-pill bg-surface-sunk px-2 py-0.5 text-[10px] text-ink-3">خيارات</span> : null}
+        </div>
+      </div>
+    </button>
   );
 }
 

@@ -5,6 +5,7 @@ export type OrderStatus =
   "pending" | "accepted" | "preparing" | "ready" | "out_for_delivery" | "completed" | "cancelled";
 
 export type OrderType = "delivery" | "pickup" | "curbside" | "dinein";
+export type OrderView = "active" | "today" | "scheduled" | "all";
 export type RefundKind = "order" | "deposit";
 export type PosStatus = "not_sent" | "queued" | "sending" | "sent" | "failed";
 export type OrderSource = "web" | "call_center" | string;
@@ -55,6 +56,7 @@ export type StaffOrder = {
   payment_status: PaymentStatus;
   paid_at: string | null;
   placed_at: string;
+  scheduled_for: string | null;
   source: OrderSource;
   created_by_staff_id: string | null;
   branches: { name_ar: string } | null;
@@ -82,7 +84,10 @@ export type StaffOrderFilters = {
   orderType?: OrderType | null;
   paymentMethod?: "cash" | "online" | null;
   source?: string | null;
+  status?: OrderStatus | null;
 };
+
+export type OrderTabCounts = Record<OrderView, number>;
 
 export type OrderRefund = {
   id: string;
@@ -117,22 +122,61 @@ export async function fetchOrderFilterOptions(): Promise<OrderFilterOptions> {
   return data as OrderFilterOptions;
 }
 
-export async function fetchStaffOrders(statuses: OrderStatus[], filters: StaffOrderFilters = {}): Promise<StaffOrder[]> {
+function riyadhDayBounds() {
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const start = new Date(`${today}T00:00:00+03:00`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+export async function fetchOrderTabCounts(): Promise<OrderTabCounts> {
+  if (!supabase) return { active: 0, today: 0, scheduled: 0, all: 0 };
+  const { start, end } = riyadhDayBounds();
+  const now = new Date().toISOString();
+  const [active, today, scheduled, all] = await Promise.all([
+    supabase.from("orders").select("id", { count: "exact", head: true }).not("status", "in", "(completed,cancelled)"),
+    supabase.from("orders").select("id", { count: "exact", head: true }).gte("placed_at", start).lt("placed_at", end),
+    supabase.from("orders").select("id", { count: "exact", head: true }).not("scheduled_for", "is", null).gte("scheduled_for", now),
+    supabase.from("orders").select("id", { count: "exact", head: true }),
+  ]);
+  const error = active.error || today.error || scheduled.error || all.error;
+  if (error) throw error;
+  return {
+    active: active.count ?? 0,
+    today: today.count ?? 0,
+    scheduled: scheduled.count ?? 0,
+    all: all.count ?? 0,
+  };
+}
+
+export async function fetchStaffOrders(view: OrderView, filters: StaffOrderFilters = {}): Promise<StaffOrder[]> {
   if (!supabase) return [];
+  const { start, end } = riyadhDayBounds();
+  const now = new Date().toISOString();
   let query = supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, source, created_by_staff_id, branches(name_ar), created_by_staff:staff!orders_created_by_staff_id_fkey(name), pos_ref, pos_status, pos_last_error, pos_sent_at, driver_id, delivery_provider_id, delivery_assignment_type, delivery_assigned_at, delivered_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
-    )
-    .in("status", statuses)
-    .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)");
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, scheduled_for, source, created_by_staff_id, branches(name_ar), created_by_staff:staff!orders_created_by_staff_id_fkey(name), pos_ref, pos_status, pos_last_error, pos_sent_at, driver_id, delivery_provider_id, delivery_assignment_type, delivery_assigned_at, delivered_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+    );
+
+  if (view === "active") query = query.not("status", "in", "(completed,cancelled)");
+  if (view === "today") query = query.gte("placed_at", start).lt("placed_at", end);
+  if (view === "scheduled") query = query.not("scheduled_for", "is", null).gte("scheduled_for", now);
 
   if (filters.branchId) query = query.eq("branch_id", filters.branchId);
   if (filters.orderType) query = query.eq("order_type", filters.orderType);
   if (filters.paymentMethod) query = query.eq("payment_method", filters.paymentMethod);
   if (filters.source) query = query.eq("source", filters.source);
+  if (filters.status) query = query.eq("status", filters.status);
 
-  const { data, error } = await query.order("placed_at", { ascending: true });
+  const { data, error } = await query
+    .order(view === "active" ? "placed_at" : "placed_at", { ascending: view === "active" })
+    .limit(200);
   if (error) throw error;
   return (data ?? []) as unknown as StaffOrder[];
 }

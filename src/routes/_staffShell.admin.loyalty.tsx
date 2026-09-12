@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { formatSAR } from "@/lib/menu";
@@ -130,6 +130,11 @@ function LoyaltyPage() {
   return (
     <main className="min-h-screen pb-12">
       <header className="border-b border-border bg-background px-5 py-5">
+        <div className="mb-1 text-xs text-muted-foreground">
+          <Link to="/admin/marketing-tools" className="hover:text-foreground hover:underline">أدوات التسويق</Link>
+          <span className="mx-1">›</span>
+          <span className="font-bold text-foreground">نقاط الولاء</span>
+        </div>
         <h1 className="text-lg font-extrabold">إعدادات نقاط الولاء</h1>
         <p className="mt-1 text-xs text-muted-foreground">
           النقاط تُمنح تلقائياً بعد إكمال الطلب فقط، وكل حركة نقاط مسجّلة في سجل غير قابل للتعديل.

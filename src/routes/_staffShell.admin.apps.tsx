@@ -578,7 +578,9 @@ function FoodicsWorkspace({ integration }: { integration: IntegrationProvider })
 function ComingSoonWorkspace({ integration }: { integration: IntegrationProvider }) {
   return (
     <section className="card-surface border border-border p-8 text-center">
-      <AppMark integration={integration} large />
+      <div className="flex justify-center">
+        <AppMark integration={integration} large />
+      </div>
       <h2 className="mt-4 text-lg font-extrabold">{integration.name_ar}</h2>
       <p className="mx-auto mt-2 max-w-xl text-xs leading-6 text-muted-foreground">
         صفحة التطبيق جاهزة داخل بنية متجر التطبيقات. إعداد الاتصال لهذا المزود سيُضاف عند تنفيذ تكامله في خارطة المشروع.
@@ -619,10 +621,28 @@ function PreviewBox({ preview }: { preview: FoodicsMenuPreview }) {
 }
 
 function AppMark({ integration, large = false }: { integration: IntegrationProvider; large?: boolean }) {
-  const size = large ? "size-14 text-lg" : "size-11 text-sm";
+  const [logoFailed, setLogoFailed] = useState(false);
+  const boxSize = large ? "h-14 w-20" : "h-11 w-16";
+  const fallbackSize = large ? "text-lg" : "text-sm";
+  const showLogo = Boolean(integration.logo) && !logoFailed;
+
   return (
-    <div className={`${size} flex shrink-0 items-center justify-center rounded-2xl border border-border bg-secondary font-black`}>
-      {integration.provider_slug === "foodics" ? "F" : integration.name_en.slice(0, 1).toUpperCase()}
+    <div
+      className={`${boxSize} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background p-2`}
+    >
+      {showLogo ? (
+        <img
+          src={integration.logo ?? undefined}
+          alt={`${integration.name_en} logo`}
+          className="max-h-full max-w-full object-contain"
+          loading="lazy"
+          onError={() => setLogoFailed(true)}
+        />
+      ) : (
+        <span className={`${fallbackSize} font-black`}>
+          {integration.name_en.slice(0, 1).toUpperCase()}
+        </span>
+      )}
     </div>
   );
 }

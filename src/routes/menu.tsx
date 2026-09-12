@@ -165,22 +165,8 @@ function MenuPage() {
     <main className="min-h-screen bg-[#fdfdfd] pb-20 text-black lg:pb-6" dir="rtl">
       {banners.length > 0 ? <StorefrontHero banners={banners} /> : null}
 
-      {selection ? (
-        <div className="mx-auto mb-3 max-w-[1320px] px-3 sm:px-4">
-          <button
-            type="button"
-            onClick={() => setSelectorOpen(true)}
-            className="inline-flex items-center gap-2 rounded-[8px] border border-[#ededed] bg-white px-3 py-2 text-xs font-medium text-[#474b46]"
-          >
-            <MapPin className="size-3.5" />
-            <span>{ORDER_TYPE_LABEL[selection.orderType]} · {selection.branchNameAr}</span>
-            <span className="text-[#878787]">تغيير</span>
-          </button>
-        </div>
-      ) : null}
-
       <section className="menuPage mb-3 flex-grow">
-        <div className="mx-auto max-w-[1320px] px-3 sm:px-4">
+        <div className="mx-auto w-full max-w-[1140px] px-[15px]">
           <MobileCategories categories={categories} active={active} onSelect={scrollTo} />
 
           <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
@@ -274,24 +260,30 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
   if (!banner) return null;
 
   const picture = (
-    <picture className="block w-full">
+    <picture className="block h-full w-full">
       {banner.mobile_image_url ? <source media="(max-width: 639px)" srcSet={banner.mobile_image_url} /> : null}
-      <img src={banner.image_url} alt={banner.title_ar ?? banner.title_en ?? "عرض"} className="block h-auto w-full object-cover" />
+      <img
+        src={banner.image_url}
+        alt={banner.title_ar ?? banner.title_en ?? "عرض"}
+        className="block h-full w-full object-cover"
+      />
     </picture>
   );
 
   return (
-    <section className="mb-3 w-full overflow-hidden bg-white">
-      {banner.link_url ? (
-        <a
-          href={banner.link_url}
-          target={banner.link_url.startsWith("http") ? "_blank" : undefined}
-          rel={banner.link_url.startsWith("http") ? "noreferrer" : undefined}
-          className="block w-full"
-        >
-          {picture}
-        </a>
-      ) : picture}
+    <section className="mx-auto mb-3 w-full max-w-[1140px] px-[15px]">
+      <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1110 / 410" }}>
+        {banner.link_url ? (
+          <a
+            href={banner.link_url}
+            target={banner.link_url.startsWith("http") ? "_blank" : undefined}
+            rel={banner.link_url.startsWith("http") ? "noreferrer" : undefined}
+            className="block h-full w-full"
+          >
+            {picture}
+          </a>
+        ) : picture}
+      </div>
     </section>
   );
 }
@@ -299,7 +291,7 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
 function MobileCategories({ categories, active, onSelect }: { categories: Category[]; active: string | null; onSelect: (id: string) => void }) {
   if (!categories.length) return null;
   return (
-    <nav className="sticky top-0 z-30 -mx-3 mb-4 flex gap-2 overflow-x-auto bg-[#fdfdfd]/95 px-3 py-2 no-scrollbar lg:hidden">
+    <nav className="sticky top-0 z-30 -mx-[15px] mb-4 flex gap-2 overflow-x-auto bg-[#fdfdfd]/95 px-[15px] py-2 no-scrollbar lg:hidden">
       {categories.map((category) => (
         <button
           key={category.id}

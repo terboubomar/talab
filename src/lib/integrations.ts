@@ -17,6 +17,23 @@ export type IntegrationProvider = {
   updated_at: string | null;
 };
 
+export type IntegrationBranch = {
+  id: string;
+  brand_id: string;
+  name_ar: string;
+  name_en: string;
+  pos_ref: string | null;
+};
+
+export type IntegrationBranchMapping = {
+  id: string;
+  branch_id: string;
+  external_branch_id: string;
+  external_branch_name: string | null;
+  active: boolean;
+  last_synced_at: string | null;
+};
+
 export type FoodicsBranch = {
   id: string;
   name: string;
@@ -34,21 +51,8 @@ export type FoodicsSetup = {
     name_en: string;
     is_default: boolean;
   }>;
-  branches: Array<{
-    id: string;
-    brand_id: string;
-    name_ar: string;
-    name_en: string;
-    pos_ref: string | null;
-  }>;
-  mappings: Array<{
-    id: string;
-    branch_id: string;
-    external_branch_id: string;
-    external_branch_name: string | null;
-    active: boolean;
-    last_synced_at: string | null;
-  }>;
+  branches: IntegrationBranch[];
+  mappings: IntegrationBranchMapping[];
 };
 
 export type FoodicsMenuPreview = {
@@ -69,6 +73,20 @@ export type FoodicsMenuPreview = {
     price: number;
     category: string | null;
   }>;
+};
+
+export type LoyverseStore = {
+  id: string;
+  name: string;
+  address: string | null;
+  phone_number: string | null;
+};
+
+export type LoyverseSetup = {
+  integration_id: string | null;
+  settings: Record<string, unknown>;
+  branches: IntegrationBranch[];
+  mappings: IntegrationBranchMapping[];
 };
 
 export async function fetchIntegrations(): Promise<IntegrationProvider[]> {
@@ -169,6 +187,41 @@ export async function pushOrderToFoodics(orderId: string): Promise<{
   const { data, error } = await supabase.functions.invoke("foodics-order-push", {
     body: { orderId },
   });
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchLoyverseSetup(): Promise<LoyverseSetup> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_loyverse_setup");
+  if (error) throw error;
+  return data as LoyverseSetup;
+}
+
+export async function saveLoyverseBranchMapping(input: {
+  branchId: string;
+  externalBranchId: string;
+  externalBranchName?: string | null;
+  active?: boolean;
+}): Promise<string> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_save_loyverse_branch_mapping", {
+    p_branch_id: input.branchId,
+    p_external_branch_id: input.externalBranchId,
+    p_external_branch_name: input.externalBranchName ?? null,
+    p_active: input.active ?? true,
+  });
+  if (error) throw error;
+  return String(data);
+}
+
+export async function testLoyverseConnection(): Promise<{
+  ok: boolean;
+  api_version: "v1.0";
+  stores: LoyverseStore[];
+}> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("loyverse-test", { body: {} });
   if (error) throw error;
   return data;
 }

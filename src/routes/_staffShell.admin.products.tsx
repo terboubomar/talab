@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ArrowDown, ArrowUp, ImageOff, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, ArrowDown, ArrowUp, BadgePercent, ImageOff, Plus, Sparkles } from "lucide-react";
 
 import {
   fetchMenus,
@@ -21,6 +21,7 @@ import { usePermissions } from "@/lib/permissions";
 import { formatSAR } from "@/lib/menu";
 import { AdminProductForm } from "@/components/AdminProductForm";
 import { AdminCrossSellManager } from "@/components/AdminCrossSellManager";
+import { AdminGroupPriceManager } from "@/components/AdminGroupPriceManager";
 
 export const Route = createFileRoute("/_staffShell/admin/products")({
   head: () => ({
@@ -39,6 +40,7 @@ function ProductsAdminPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [crossSellProduct, setCrossSellProduct] = useState<AdminProduct | null>(null);
+  const [groupPriceProduct, setGroupPriceProduct] = useState<AdminProduct | null>(null);
 
   const canWrite = can("menus.update");
   const canCreate = can("menus.create");
@@ -202,7 +204,7 @@ function ProductsAdminPage() {
                       <p className="truncate text-sm font-bold">{p.name_ar}</p>
                       <p className="mt-1 text-sm font-bold text-brand">{formatSAR(p.price)}</p>
                       {canWrite ? (
-                        <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="mt-3 space-y-2">
                           <label className="flex items-center gap-1.5 text-xs">
                             <input
                               type="checkbox"
@@ -212,7 +214,15 @@ function ProductsAdminPage() {
                             />
                             مفعّل
                           </label>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setGroupPriceProduct(p)}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-sm bg-secondary px-2.5 text-[11px] font-bold text-foreground"
+                            >
+                              <BadgePercent aria-hidden className="size-3.5 text-brand" />
+                              أسعار الأعضاء
+                            </button>
                             <button
                               type="button"
                               onClick={() => setCrossSellProduct(p)}
@@ -351,6 +361,14 @@ function ProductsAdminPage() {
           menuId={activeMenuId}
           tenantId={tenantId}
           onClose={() => setCrossSellProduct(null)}
+        />
+      ) : null}
+
+      {groupPriceProduct && tenantId ? (
+        <AdminGroupPriceManager
+          product={groupPriceProduct}
+          tenantId={tenantId}
+          onClose={() => setGroupPriceProduct(null)}
         />
       ) : null}
     </main>

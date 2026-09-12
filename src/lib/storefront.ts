@@ -175,7 +175,12 @@ export async function submitOrder(params: {
     p_wallet_reservation_id: params.walletReservationId ?? null,
     p_source: "web",
   });
-  if (error) throw error;
+  if (error) {
+    if (error.message?.includes("branch_busy")) {
+      throw new Error("order_type_not_available:branch_busy");
+    }
+    throw error;
+  }
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) throw new Error("تعذّر إنشاء الطلب");
   return row as PlaceOrderResult;

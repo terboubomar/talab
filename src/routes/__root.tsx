@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import callCenterCss from "../call-center.css?url";
+import { StorefrontTracking } from "../components/StorefrontTracking";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -129,6 +130,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <StorefrontTracking />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

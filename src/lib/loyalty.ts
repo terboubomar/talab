@@ -133,15 +133,19 @@ export async function adjustPoints(
 export function pointsReasonLabel(reason: string): string {
   const key = reason.trim().toLowerCase();
   const map: Record<string, string> = {
+    "order completion": "مكافأة إكمال طلب",
     order_completed: "مكافأة إكمال طلب",
     order_completion: "مكافأة إكمال طلب",
     order_earn: "مكافأة إكمال طلب",
+    "order redemption": "استبدال نقاط",
     order_redeem: "استبدال نقاط",
     order_redemption: "استبدال نقاط",
     redeem: "استبدال نقاط",
+    "order cancellation reversal": "إرجاع نقاط طلب ملغي",
     order_cancelled: "إرجاع نقاط طلب ملغي",
     order_cancellation: "إرجاع نقاط طلب ملغي",
     order_cancel_reversal: "إرجاع نقاط طلب ملغي",
+    "points expired": "انتهاء صلاحية النقاط",
     points_expired: "انتهاء صلاحية النقاط",
     expired: "انتهاء صلاحية النقاط",
   };

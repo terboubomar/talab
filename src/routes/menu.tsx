@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ImageOff, MapPin, ShoppingBag, X } from "lucide-react";
+import { ImageOff, MapPin, ShoppingBag } from "lucide-react";
 
 import {
   ORDER_TYPE_LABEL,
@@ -28,6 +28,7 @@ import {
 import { applyBrandTheme } from "@/lib/theme";
 import { readCart, saveCart } from "@/lib/cart";
 import { ProductSheet } from "@/components/ProductSheet";
+import { StorefrontOrderContextModal } from "@/components/StorefrontOrderContextModal";
 
 export const Route = createFileRoute("/menu")({
   head: () => ({
@@ -232,10 +233,11 @@ function MenuPage() {
         <ProductSheet product={openProduct} onClose={() => setOpenProduct(null)} onAdd={addToCart} />
       ) : null}
 
-      <OrderContextModal
+      <StorefrontOrderContextModal
         open={selectorOpen}
         branches={branches}
         loading={branchesLoading}
+        selection={selection}
         onClose={() => {
           setSelectorOpen(false);
           setPendingProductId(null);
@@ -473,91 +475,6 @@ function DesktopCart({
       <button type="button" onClick={onCheckout} className="mt-3 min-h-11 w-full rounded-card bg-brand px-4 py-3 text-sm font-semibold text-brand-ink">
         تنفيذ الطلب
       </button>
-    </div>
-  );
-}
-
-function OrderContextModal({
-  open,
-  branches,
-  loading,
-  onClose,
-  onChoose,
-}: {
-  open: boolean;
-  branches: Branch[];
-  loading: boolean;
-  onClose: () => void;
-  onChoose: (branch: Branch, orderType: OrderType) => void;
-}) {
-  const grouped = useMemo(() => {
-    const map = new Map<string, Branch[]>();
-    branches.forEach((branch) => {
-      if (branch.busy) return;
-      const city = branch.city_ar?.trim() || "فروع أخرى";
-      const bucket = map.get(city) ?? [];
-      bucket.push(branch);
-      map.set(city, bucket);
-    });
-    return [...map.entries()];
-  }, [branches]);
-
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 sm:items-center sm:p-5" onClick={onClose}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="order-context-title"
-        className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-t-card bg-surface-raised shadow-2xl sm:rounded-card"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-line px-4 py-4">
-          <div>
-            <h2 id="order-context-title" className="text-base font-semibold">ابدأ طلبك</h2>
-            <p className="mt-1 text-xs text-ink-3">اختر الفرع وطريقة الطلب</p>
-          </div>
-          <button type="button" onClick={onClose} className="grid size-11 place-items-center rounded-pill bg-surface-sunk" aria-label="إغلاق">
-            <X className="size-4" aria-hidden />
-          </button>
-        </header>
-
-        <div className="max-h-[calc(88vh-78px)] overflow-y-auto p-4">
-          {loading ? (
-            <div className="space-y-3">{[0, 1, 2].map((item) => <div key={item} className="h-28 animate-pulse rounded-card bg-surface-sunk" />)}</div>
-          ) : grouped.length === 0 ? (
-            <Notice title="لا توجد فروع متاحة" body="حاول مرة أخرى بعد قليل." />
-          ) : (
-            <div className="space-y-6">
-              {grouped.map(([city, cityBranches]) => (
-                <section key={city}>
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4" aria-hidden /> {city}</div>
-                  <div className="space-y-2">
-                    {cityBranches.map((branch) => (
-                      <article key={String(branch.branch_id ?? branch.id)} className="rounded-card border border-line p-3">
-                        <h3 className="text-sm font-semibold">{branch.name_ar}</h3>
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {(branch.order_types ?? []).map((type) => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => onChoose(branch, type)}
-                              className="min-h-11 rounded-sm bg-ink px-3 py-2.5 text-xs font-medium text-surface"
-                            >
-                              {ORDER_TYPE_LABEL[type] ?? type}
-                            </button>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
     </div>
   );
 }

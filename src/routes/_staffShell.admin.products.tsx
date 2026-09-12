@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, ArrowDown, ArrowUp, ImageOff, Plus } from "lucide-react";
+import { ArrowRight, ArrowDown, ArrowUp, ImageOff, Plus, Sparkles } from "lucide-react";
 
 import {
   fetchMenus,
@@ -20,6 +20,7 @@ import {
 import { usePermissions } from "@/lib/permissions";
 import { formatSAR } from "@/lib/menu";
 import { AdminProductForm } from "@/components/AdminProductForm";
+import { AdminCrossSellManager } from "@/components/AdminCrossSellManager";
 
 export const Route = createFileRoute("/_staffShell/admin/products")({
   head: () => ({
@@ -37,6 +38,7 @@ function ProductsAdminPage() {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
+  const [crossSellProduct, setCrossSellProduct] = useState<AdminProduct | null>(null);
 
   const canWrite = can("menus.update");
   const canCreate = can("menus.create");
@@ -200,7 +202,7 @@ function ProductsAdminPage() {
                       <p className="truncate text-sm font-bold">{p.name_ar}</p>
                       <p className="mt-1 text-sm font-bold text-brand">{formatSAR(p.price)}</p>
                       {canWrite ? (
-                        <div className="mt-2 flex items-center justify-between">
+                        <div className="mt-3 flex items-center justify-between gap-2">
                           <label className="flex items-center gap-1.5 text-xs">
                             <input
                               type="checkbox"
@@ -210,16 +212,26 @@ function ProductsAdminPage() {
                             />
                             مفعّل
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProduct(p);
-                              setFormOpen(true);
-                            }}
-                            className="text-xs font-bold text-brand"
-                          >
-                            تعديل
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setCrossSellProduct(p)}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-sm bg-secondary px-2.5 text-[11px] font-bold text-foreground"
+                            >
+                              <Sparkles aria-hidden className="size-3.5 text-brand" />
+                              اقتراحات
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setFormOpen(true);
+                              }}
+                              className="min-h-9 rounded-sm px-2 text-xs font-bold text-brand"
+                            >
+                              تعديل
+                            </button>
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -330,6 +342,15 @@ function ProductsAdminPage() {
           product={editingProduct}
           onClose={() => setFormOpen(false)}
           onSave={handleSaveProduct}
+        />
+      ) : null}
+
+      {crossSellProduct && activeMenuId && tenantId ? (
+        <AdminCrossSellManager
+          product={crossSellProduct}
+          menuId={activeMenuId}
+          tenantId={tenantId}
+          onClose={() => setCrossSellProduct(null)}
         />
       ) : null}
     </main>

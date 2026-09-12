@@ -31,6 +31,15 @@ export type AdminProduct = {
   primary_image_url: string | null;
 };
 
+export type AdminCrossSellCandidate = {
+  id: string;
+  name_ar: string;
+  name_en: string | null;
+  price: number;
+  category_name_ar: string;
+  primary_image_url: string | null;
+};
+
 export async function fetchMenus(): Promise<AdminMenu[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -97,6 +106,106 @@ export async function fetchProducts(categoryId: string): Promise<AdminProduct[]>
     primary_image_url:
       p.product_images?.find((img) => img.is_primary)?.url ?? p.product_images?.[0]?.url ?? null,
   }));
+}
+
+export async function fetchCrossSellCandidates(
+  menuId: string,
+  productId: string,
+): Promise<AdminCrossSellCandidate[]> {
+  if (!supabase) return [];
+
+  const { data: categoryRows, error: categoryError } = await supabase
+    .from("categories")
+    .select("id, name_ar")
+    .eq("menu_id", menuId)
+    .is("deleted_at", null);
+  if (categoryError) throw categoryError;
+
+  const categories = (categoryRows ?? []) as Array<{ id: string; name_ar: string }>;
+  if (categories.length === 0) return [];
+  const categoryMap = new Map(categories.map((category) => [category.id, category.name_ar]));
+
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, category_id, name_ar, name_en, price, sort, product_images(url, is_primary, sort)")
+    .in("category_id", categories.map((category) => category.id))
+    .neq("id", productId)
+    .eq("active", true)
+    .eq("orderable", true)
+    .is("deleted_at", null)
+    .order("sort", { ascending: true });
+  if (error) throw error;
+
+  return (
+    (data ?? []) as unknown as Array<{
+      id: string;
+      category_id: string;
+      name_ar: string;
+      name_en: string | null;
+      price: number;
+      product_images: { url: string; is_primary: boolean; sort: number }[];
+    }>
+  ).map((product) => ({
+    id: product.id,
+    name_ar: product.name_ar,
+    name_en: product.name_en,
+    price: Number(product.price),
+    category_name_ar: categoryMap.get(product.category_id) ?? "",
+    primary_image_url:
+      product.product_images?.find((image) => image.is_primary)?.url ??
+      [...(product.product_images ?? [])].sort((a, b) => a.sort - b.sort)[0]?.url ??
+      null,
+  }));
+}
+
+export async function fetchProductCrossSells(productId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("product_cross_sells")
+    .select("suggested_id, sort")
+    .eq("product_id", productId)
+    .order("sort", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as Array<{ suggested_id: string }>).map((row) => row.suggested_id);
+}
+
+export async function saveProductCrossSells(params: {
+  tenantId: string;
+  productId: string;
+  suggestedIds: string[];
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const selected = [...new Set(params.suggestedIds.filter((id) => id !== params.productId))].slice(0, 8);
+
+  const { data: currentRows, error: currentError } = await supabase
+    .from("product_cross_sells")
+    .select("suggested_id")
+    .eq("product_id", params.productId);
+  if (currentError) throw currentError;
+
+  const currentIds = ((currentRows ?? []) as Array<{ suggested_id: string }>).map((row) => row.suggested_id);
+  const removed = currentIds.filter((id) => !selected.includes(id));
+  if (removed.length > 0) {
+    const { error } = await supabase
+      .from("product_cross_sells")
+      .delete()
+      .eq("product_id", params.productId)
+      .in("suggested_id", removed);
+    if (error) throw error;
+  }
+
+  if (selected.length > 0) {
+    const { error } = await supabase.from("product_cross_sells").upsert(
+      selected.map((suggestedId, index) => ({
+        tenant_id: params.tenantId,
+        product_id: params.productId,
+        suggested_id: suggestedId,
+        sort: index,
+      })),
+      { onConflict: "product_id,suggested_id" },
+    );
+    if (error) throw error;
+  }
 }
 
 export async function setCategoryActive(id: string, active: boolean) {

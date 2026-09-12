@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Talab Driver",
+    "slug": "talab-driver",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.talab.driver"
+    },
+    "android": {
+      "package": "com.talab.driver"
+    }
+  }
+}

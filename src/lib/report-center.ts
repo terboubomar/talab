@@ -37,6 +37,33 @@ export type ReportCenterSupport = {
   ledger_branch_filter_applies: boolean;
 };
 
+export type SalesDetailOrder = {
+  id: string;
+  placed_at: string;
+  branch_name: string;
+  customer_name: string;
+  customer_phone: string;
+  order_type: string;
+  status: string;
+  source: string;
+  agent_name: string | null;
+  payment_method: string;
+  payment_status: string;
+  subtotal: number;
+  discount_total: number;
+  delivery_fee: number;
+  tax_total: number;
+  total: number;
+};
+
+export type SalesDetailReport = {
+  total_rows: number;
+  truncated: boolean;
+  by_source: Array<{ source: string; orders: number; completed_orders: number; sales: number }>;
+  by_payment_method: Array<{ payment_method: string; orders: number; completed_orders: number; sales: number }>;
+  orders: SalesDetailOrder[];
+};
+
 export async function fetchReportCenterSupport(from: string, to: string, branchId?: string | null): Promise<ReportCenterSupport> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_report_center_support", {
@@ -46,6 +73,17 @@ export async function fetchReportCenterSupport(from: string, to: string, branchI
   });
   if (error) throw error;
   return data as ReportCenterSupport;
+}
+
+export async function fetchSalesDetailReport(from: string, to: string, branchId?: string | null): Promise<SalesDetailReport> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_sales_detail_report", {
+    p_from: from,
+    p_to: to,
+    p_branch_id: branchId || null,
+  });
+  if (error) throw error;
+  return data as SalesDetailReport;
 }
 
 export function downloadCsv(filename: string, rows: Array<Record<string, string | number | null | undefined>>) {

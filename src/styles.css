@@ -9,13 +9,6 @@
  *
  * The @theme inline block maps CSS custom properties to Tailwind utility
  * classes (e.g. --color-primary -> bg-primary, text-primary).
- *
- * The :root and .dark blocks define the actual color values using oklch.
- * All colors MUST use oklch format.
- *
- * To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
  */
 
 @theme inline {
@@ -144,42 +137,60 @@
 }
 
 /* ============================================================
- * Talab brand layer — token driven.
- * Every color, radius and font is a variable here. Components must
- * never hardcode a hex value. brands.theme (jsonb) overrides these
- * at runtime via src/lib/theme.ts.
+ * Talab design system — audited storefront tokens.
+ * Brand-specific values can be overridden by brands.theme at runtime.
  * ============================================================ */
 
 :root {
-  --ink: #14121a;
+  /* Surfaces */
   --surface: #ffffff;
-  --muted-soft: #f5f2ed;
-  --line: #e6e1d8;
+  --surface-sunk: #f7f5f2;
+  --surface-raised: #ffffff;
+  --muted-soft: var(--surface-sunk);
+  --line: #e7e2da;
+  --line-soft: #f1ede6;
+
+  /* Text */
+  --ink: #17151c;
+  --ink-2: #55505f;
+  --ink-3: #8b8598;
+
+  /* Brand */
   --accent: #e8256f;
   --accent-ink: #ffffff;
-  --success: #0e7c66;
-  --danger: #b0342f;
+  --accent-soft: #fde9f1;
 
+  /* Semantic */
+  --ok: #0e7c66;
+  --warn: #a96a08;
+  --danger: #b0342f;
+  --success: var(--ok);
+
+  /* Shape and depth */
+  --radius-sm: 8px;
   --radius-card: 14px;
   --radius-pill: 999px;
-  --shadow-card: 0 6px 24px -12px color-mix(in oklab, var(--ink) 30%, transparent);
+  --shadow-1: 0 1px 2px rgba(23, 21, 28, 0.05);
+  --shadow-2: 0 8px 24px -12px rgba(23, 21, 28, 0.18);
+  --shadow-card: var(--shadow-2);
 
+  /* Typography */
   --font-heading: "Tajawal", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans Arabic", "Almarai", "Roboto", system-ui, sans-serif;
 
-  /* shadcn tokens remapped onto the brand palette */
+  /* Shadcn/Tailwind semantic aliases */
   --background: var(--surface);
   --foreground: var(--ink);
-  --card: var(--surface);
+  --card: var(--surface-raised);
   --card-foreground: var(--ink);
-  --popover: var(--surface);
+  --popover: var(--surface-raised);
   --popover-foreground: var(--ink);
   --primary: var(--accent);
   --primary-foreground: var(--accent-ink);
-  --secondary: var(--muted-soft);
+  --secondary: var(--surface-sunk);
   --secondary-foreground: var(--ink);
-  --muted: var(--muted-soft);
-  --muted-foreground: color-mix(in oklab, var(--ink) 60%, var(--surface));
+  --muted: var(--surface-sunk);
+  --muted-foreground: var(--ink-2);
   --accent-foreground: var(--accent-ink);
   --destructive: var(--danger);
   --destructive-foreground: var(--surface);
@@ -189,13 +200,78 @@
   --radius: var(--radius-card);
 }
 
+.dark,
+[data-theme="dark"] {
+  --surface: #17151c;
+  --surface-sunk: #111016;
+  --surface-raised: #211f28;
+  --muted-soft: var(--surface-sunk);
+  --line: #35313d;
+  --line-soft: #2b2832;
+  --ink: #f8f6fb;
+  --ink-2: #c7c1d0;
+  --ink-3: #938d9d;
+  --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.58);
+
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
+  --secondary: var(--surface-sunk);
+  --secondary-foreground: var(--ink);
+  --muted: var(--surface-sunk);
+  --muted-foreground: var(--ink-2);
+  --border: var(--line);
+  --input: var(--line);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not(.light) {
+    --surface: #17151c;
+    --surface-sunk: #111016;
+    --surface-raised: #211f28;
+    --muted-soft: var(--surface-sunk);
+    --line: #35313d;
+    --line-soft: #2b2832;
+    --ink: #f8f6fb;
+    --ink-2: #c7c1d0;
+    --ink-3: #938d9d;
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-2: 0 8px 24px -12px rgba(0, 0, 0, 0.58);
+    --background: var(--surface);
+    --foreground: var(--ink);
+    --card: var(--surface-raised);
+    --card-foreground: var(--ink);
+    --popover: var(--surface-raised);
+    --popover-foreground: var(--ink);
+    --secondary: var(--surface-sunk);
+    --secondary-foreground: var(--ink);
+    --muted: var(--surface-sunk);
+    --muted-foreground: var(--ink-2);
+    --border: var(--line);
+    --input: var(--line);
+  }
+}
+
 @theme inline {
   --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
   --color-surface: var(--surface);
+  --color-surface-sunk: var(--surface-sunk);
+  --color-surface-raised: var(--surface-raised);
   --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-brand: var(--accent);
   --color-brand-ink: var(--accent-ink);
-  --color-success: var(--success);
+  --color-brand-soft: var(--accent-soft);
+  --color-success: var(--ok);
+  --color-warning: var(--warn);
   --color-danger: var(--danger);
   --font-heading: var(--font-heading);
   --font-body: var(--font-body);
@@ -210,6 +286,9 @@
   }
 
   body {
+    background: var(--surface-sunk);
+    color: var(--ink);
+    font-size: 15px;
     font-weight: 400;
     line-height: 1.75;
     -webkit-font-smoothing: antialiased;
@@ -223,12 +302,32 @@
     font-weight: 700;
     line-height: 1.35;
   }
+
+  :where(button, a, input, textarea, select, [tabindex]):focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  :where(input, button, select, textarea) {
+    font: inherit;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @utility card-surface {
-  background-color: var(--surface);
+  background-color: var(--surface-raised);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-1);
 }
 
 @utility chip {
@@ -236,8 +335,8 @@
   align-items: center;
   gap: 0.25rem;
   border-radius: var(--radius-pill);
-  background-color: var(--muted-soft);
-  color: var(--ink);
+  background-color: var(--surface-sunk);
+  color: var(--ink-2);
   padding-inline: 0.7rem;
   padding-block: 0.2rem;
   font-size: 0.8125rem;

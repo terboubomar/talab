@@ -37,6 +37,44 @@ export type Product = {
   modifier_groups: ModifierGroup[] | null;
 };
 
+export type ProductImage = {
+  id: string;
+  url: string;
+  is_primary: boolean | null;
+  sort: number | null;
+};
+
+export type ProductAllergen = {
+  id: string;
+  name_ar: string;
+  name_en?: string | null;
+  icon?: string | null;
+};
+
+export type ProductNutrition = {
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  sugar_g: number | null;
+  sodium_mg: number | null;
+  serving: string | null;
+};
+
+export type ProductSchedule = {
+  starts_at: string | null;
+  ends_at: string | null;
+  weekdays: number[] | null;
+  from_time: string | null;
+  to_time: string | null;
+};
+
+export type ProductDetail = Product & {
+  images: ProductImage[];
+  allergens: ProductAllergen[];
+  nutrition: ProductNutrition | null;
+  schedule: ProductSchedule | null;
+};
+
 export type Category = {
   id: string;
   name_ar: string;
@@ -72,6 +110,31 @@ export function menuQuery(branchId: string | null) {
       if (error) throw error;
       return (data ?? []) as Category[];
     },
+  });
+}
+
+export function productDetailQuery(productId: string, branchId: string | null) {
+  return queryOptions({
+    queryKey: ["storefront_product_detail", TENANT_SLUG, branchId ?? "preview", productId],
+    queryFn: async (): Promise<ProductDetail | null> => {
+      if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+      const { data, error } = await supabase.rpc("storefront_product_detail", {
+        p_tenant_slug: TENANT_SLUG,
+        p_product_id: productId,
+        p_branch_id: branchId,
+      });
+      if (error) throw error;
+      if (!data) return null;
+      const row = data as Omit<ProductDetail, "image"> & { image?: string | null };
+      const images = Array.isArray(row.images) ? row.images : [];
+      return {
+        ...row,
+        images,
+        allergens: Array.isArray(row.allergens) ? row.allergens : [],
+        image: row.image ?? images[0]?.url ?? null,
+      } as ProductDetail;
+    },
+    retry: false,
   });
 }
 

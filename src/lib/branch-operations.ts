@@ -282,3 +282,151 @@ export async function createDeliveryZone(
   if (error) throw error;
   return data as { id: string; branch_id: string; area_id: string };
 }
+
+export type TableStatus = "available" | "occupied" | "reserved" | "inactive";
+
+export type DineinArea = {
+  id: string;
+  name_ar: string;
+  name_en: string | null;
+  active: boolean;
+  sort: number;
+};
+
+export type DineinTable = {
+  id: string;
+  area_id: string | null;
+  name: string;
+  capacity: number;
+  status: TableStatus;
+  sort: number;
+};
+
+export type DineinLayout = {
+  areas: DineinArea[];
+  tables: DineinTable[];
+};
+
+export async function fetchDineinLayout(branchId: string): Promise<DineinLayout> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_dinein_layout", { p_branch_id: branchId });
+  if (error) throw error;
+  return data as DineinLayout;
+}
+
+export async function createDineinArea(branchId: string, nameAr: string, nameEn: string) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_create_dinein_area", {
+    p_branch_id: branchId,
+    p_name_ar: nameAr,
+    p_name_en: nameEn,
+  });
+  if (error) throw error;
+  return data as { id: string; name_ar: string };
+}
+
+export async function updateDineinArea(
+  areaId: string,
+  nameAr: string,
+  nameEn: string,
+  active: boolean,
+) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_update_dinein_area", {
+    p_area_id: areaId,
+    p_name_ar: nameAr,
+    p_name_en: nameEn,
+    p_active: active,
+  });
+  if (error) throw error;
+}
+
+export async function deleteDineinArea(areaId: string) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_delete_dinein_area", { p_area_id: areaId });
+  if (error) throw error;
+}
+
+export async function createDineinTable(params: {
+  branchId: string;
+  areaId: string | null;
+  name: string;
+  capacity: number;
+  status: TableStatus;
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_create_dinein_table", {
+    p_branch_id: params.branchId,
+    p_area_id: params.areaId,
+    p_name: params.name,
+    p_capacity: params.capacity,
+    p_status: params.status,
+  });
+  if (error) throw error;
+  return data as { id: string; name: string };
+}
+
+export async function updateDineinTable(params: {
+  tableId: string;
+  areaId: string | null;
+  name: string;
+  capacity: number;
+  status: TableStatus;
+}) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_update_dinein_table", {
+    p_table_id: params.tableId,
+    p_area_id: params.areaId,
+    p_name: params.name,
+    p_capacity: params.capacity,
+    p_status: params.status,
+  });
+  if (error) throw error;
+}
+
+export async function deleteDineinTable(tableId: string) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_delete_dinein_table", { p_table_id: tableId });
+  if (error) throw error;
+}
+
+export type ReservationSettings = {
+  enabled: boolean;
+  min_party_size: number;
+  max_party_size: number;
+  slot_duration_minutes: number;
+  advance_booking_days: number;
+  buffer_minutes: number;
+};
+
+export type WaitlistSettings = {
+  enabled: boolean;
+  max_party_size: number;
+  default_wait_minutes: number;
+};
+
+export type BranchSettings = {
+  reservations: ReservationSettings;
+  waitlist: WaitlistSettings;
+};
+
+export async function fetchBranchSettings(branchId: string): Promise<BranchSettings> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_branch_settings", { p_branch_id: branchId });
+  if (error) throw error;
+  return data as BranchSettings;
+}
+
+export async function updateBranchSettings(
+  branchId: string,
+  groupKey: "reservations" | "waitlist",
+  value: ReservationSettings | WaitlistSettings,
+) {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_update_branch_settings", {
+    p_branch_id: branchId,
+    p_group_key: groupKey,
+    p_value: value,
+  });
+  if (error) throw error;
+}

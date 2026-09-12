@@ -30,23 +30,38 @@ import {
   createBranch,
   createCity,
   createDeliveryZone,
+  createDineinArea,
+  createDineinTable,
+  deleteDineinArea,
+  deleteDineinTable,
   fetchBranchFormOptions,
+  fetchBranchSettings,
+  fetchDineinLayout,
   fetchStaffBranchDetail,
   fetchStaffBranchOperations,
   setBranchBusyUntil,
   setBranchProductAvailability,
   updateBranch,
+  updateBranchSettings,
   updateDeliveryZone,
+  updateDineinArea,
+  updateDineinTable,
   type AreaOption,
   type BranchFormInput,
   type BranchOption,
   type BranchOrderType,
+  type BranchSettings,
+  type DineinArea,
+  type DineinTable,
+  type ReservationSettings,
   type StaffBranchDetail,
   type StaffBranchFormOptions,
   type StaffBranchHour,
   type StaffBranchOperation,
   type StaffBranchProduct,
   type StaffDeliveryZone,
+  type TableStatus,
+  type WaitlistSettings,
 } from "@/lib/branch-operations";
 import { usePermissions } from "@/lib/permissions";
 
@@ -582,11 +597,11 @@ function BranchDetailWorkspace({
             onToggle={(productId, available) => productMutation.mutate({ productId, available })}
           />
         ) : tab === "seating" ? (
-          <FutureBranchTab icon={UtensilsCrossed} title="مناطق الجلوس والطاولات" />
+          <SeatingTab branchId={branchId} canManage={can("reservations.manage")} />
         ) : tab === "reservations" ? (
-          <FutureBranchTab icon={CalendarDays} title="إعدادات الحجوزات" />
+          <ReservationsSettingsTab branchId={branchId} canManage={can("reservations.manage")} />
         ) : (
-          <FutureBranchTab icon={Users} title="إعدادات قائمة الانتظار" />
+          <WaitlistSettingsTab branchId={branchId} canManage={can("waitlist.manage")} />
         )}
       </div>
     </main>
@@ -1770,17 +1785,440 @@ function BranchProductsTab({
   );
 }
 
-function FutureBranchTab({ icon: Icon, title }: { icon: typeof Store; title: string }) {
+function SeatingTab({ branchId, canManage }: { branchId: string; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const [showAddArea, setShowAddArea] = useState(false);
+  const [newAreaName, setNewAreaName] = useState("");
+  const [showAddTable, setShowAddTable] = useState(false);
+  const [newTable, setNewTable] = useState<{ name: string; capacity: string; areaId: string }>({
+    name: "",
+    capacity: "2",
+    areaId: "",
+  });
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["dinein_layout", branchId],
+    queryFn: () => fetchDineinLayout(branchId),
+  });
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["dinein_layout", branchId] });
+  }
+
+  const addAreaMutation = useMutation({
+    mutationFn: (nameAr: string) => createDineinArea(branchId, nameAr, ""),
+    onSuccess: () => {
+      setNewAreaName("");
+      setShowAddArea(false);
+      invalidate();
+    },
+  });
+  const toggleAreaMutation = useMutation({
+    mutationFn: (area: DineinArea) =>
+      updateDineinArea(area.id, area.name_ar, area.name_en ?? "", !area.active),
+    onSuccess: invalidate,
+  });
+  const deleteAreaMutation = useMutation({
+    mutationFn: (areaId: string) => deleteDineinArea(areaId),
+    onSuccess: invalidate,
+  });
+  const addTableMutation = useMutation({
+    mutationFn: (input: { name: string; capacity: number; areaId: string | null }) =>
+      createDineinTable({
+        branchId,
+        areaId: input.areaId,
+        name: input.name,
+        capacity: input.capacity,
+        status: "available",
+      }),
+    onSuccess: () => {
+      setNewTable({ name: "", capacity: "2", areaId: "" });
+      setShowAddTable(false);
+      invalidate();
+    },
+  });
+  const updateTableStatusMutation = useMutation({
+    mutationFn: (input: { table: DineinTable; status: TableStatus }) =>
+      updateDineinTable({
+        tableId: input.table.id,
+        areaId: input.table.area_id,
+        name: input.table.name,
+        capacity: input.table.capacity,
+        status: input.status,
+      }),
+    onSuccess: invalidate,
+  });
+  const deleteTableMutation = useMutation({
+    mutationFn: (tableId: string) => deleteDineinTable(tableId),
+    onSuccess: invalidate,
+  });
+
+  if (isLoading || !data) {
+    return <div className="card-surface h-32 animate-pulse opacity-60" />;
+  }
+
+  const statusLabel: Record<TableStatus, string> = {
+    available: "متاحة",
+    occupied: "مشغولة",
+    reserved: "محجوزة",
+    inactive: "معطّلة",
+  };
+
   return (
-    <section className="card-surface p-10 text-center">
-      <span className="mx-auto grid size-12 place-items-center rounded-pill bg-secondary text-brand">
-        <Icon className="size-5" aria-hidden />
-      </span>
-      <h2 className="mt-4 text-sm font-extrabold">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md text-xs leading-6 text-muted-foreground">
-        هذا التبويب موجود في تصميم المشروع، لكن جداول هذه الوحدة غير مفعلة في قاعدة البيانات الحالية
-        بعد. لن نعرض بيانات وهمية.
-      </p>
+    <div className="grid gap-6">
+      <section className="card-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-extrabold">
+            <UtensilsCrossed className="size-4 text-brand" aria-hidden />
+            مناطق الجلوس
+          </h2>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => setShowAddArea((v) => !v)}
+              className="flex items-center gap-1 rounded-pill bg-brand px-3 py-1.5 text-xs font-bold text-brand-ink"
+            >
+              <Plus className="size-3.5" aria-hidden />
+              إضافة منطقة
+            </button>
+          ) : null}
+        </div>
+        {showAddArea ? (
+          <div className="mb-3 flex gap-2">
+            <input
+              value={newAreaName}
+              onChange={(e) => setNewAreaName(e.target.value)}
+              placeholder="اسم المنطقة"
+              className="flex-1 rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <button
+              type="button"
+              disabled={!newAreaName.trim() || addAreaMutation.isPending}
+              onClick={() => addAreaMutation.mutate(newAreaName.trim())}
+              className="rounded-card bg-brand px-4 py-2 text-sm font-bold text-brand-ink disabled:opacity-50"
+            >
+              حفظ
+            </button>
+          </div>
+        ) : null}
+        {data.areas.length === 0 ? (
+          <p className="text-sm text-muted-foreground">لا توجد مناطق جلوس مضافة بعد</p>
+        ) : (
+          <div className="grid gap-2">
+            {data.areas.map((area) => (
+              <div
+                key={area.id}
+                className="flex items-center justify-between rounded-card border border-border px-3 py-2"
+              >
+                <span className="text-sm font-bold">
+                  {area.name_ar}
+                  {!area.active ? (
+                    <span className="ms-2 text-xs text-muted-foreground">(معطّلة)</span>
+                  ) : null}
+                </span>
+                {canManage ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleAreaMutation.mutate(area)}
+                      className="text-xs font-bold text-muted-foreground"
+                    >
+                      {area.active ? "تعطيل" : "تفعيل"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteAreaMutation.mutate(area.id)}
+                      className="text-xs font-bold text-danger"
+                    >
+                      حذف
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-extrabold">الطاولات</h2>
+          {canManage ? (
+            <button
+              type="button"
+              onClick={() => setShowAddTable((v) => !v)}
+              className="flex items-center gap-1 rounded-pill bg-brand px-3 py-1.5 text-xs font-bold text-brand-ink"
+            >
+              <Plus className="size-3.5" aria-hidden />
+              إضافة طاولة
+            </button>
+          ) : null}
+        </div>
+        {showAddTable ? (
+          <div className="mb-3 grid grid-cols-[1fr_100px_1fr_auto] gap-2">
+            <input
+              value={newTable.name}
+              onChange={(e) => setNewTable((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="اسم الطاولة"
+              className="rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <input
+              type="number"
+              min={1}
+              value={newTable.capacity}
+              onChange={(e) => setNewTable((prev) => ({ ...prev, capacity: e.target.value }))}
+              placeholder="السعة"
+              className="rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
+            />
+            <select
+              value={newTable.areaId}
+              onChange={(e) => setNewTable((prev) => ({ ...prev, areaId: e.target.value }))}
+              className="rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand"
+            >
+              <option value="">بدون منطقة</option>
+              {data.areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name_ar}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!newTable.name.trim() || addTableMutation.isPending}
+              onClick={() =>
+                addTableMutation.mutate({
+                  name: newTable.name.trim(),
+                  capacity: Number(newTable.capacity) || 1,
+                  areaId: newTable.areaId || null,
+                })
+              }
+              className="rounded-card bg-brand px-4 py-2 text-sm font-bold text-brand-ink disabled:opacity-50"
+            >
+              حفظ
+            </button>
+          </div>
+        ) : null}
+        {data.tables.length === 0 ? (
+          <p className="text-sm text-muted-foreground">لا توجد طاولات مضافة بعد</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {data.tables.map((table) => {
+              const area = data.areas.find((a) => a.id === table.area_id);
+              return (
+                <div key={table.id} className="rounded-card border border-border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold">{table.name}</span>
+                    {canManage ? (
+                      <button
+                        type="button"
+                        onClick={() => deleteTableMutation.mutate(table.id)}
+                        className="text-xs font-bold text-danger"
+                      >
+                        حذف
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {table.capacity} مقاعد{area ? ` · ${area.name_ar}` : ""}
+                  </p>
+                  {canManage ? (
+                    <select
+                      value={table.status}
+                      onChange={(e) =>
+                        updateTableStatusMutation.mutate({
+                          table,
+                          status: e.target.value as TableStatus,
+                        })
+                      }
+                      className="mt-2 w-full rounded-card border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-brand"
+                    >
+                      {(Object.keys(statusLabel) as TableStatus[]).map((s) => (
+                        <option key={s} value={s}>
+                          {statusLabel[s]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="mt-2 inline-block chip text-xs">
+                      {statusLabel[table.status]}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ReservationsSettingsTab({
+  branchId,
+  canManage,
+}: {
+  branchId: string;
+  canManage: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["branch_settings", branchId],
+    queryFn: () => fetchBranchSettings(branchId),
+  });
+  const [form, setForm] = useState<ReservationSettings | null>(null);
+
+  useEffect(() => {
+    if (data && !form) setForm(data.reservations);
+  }, [data, form]);
+
+  const saveMutation = useMutation({
+    mutationFn: (values: ReservationSettings) =>
+      updateBranchSettings(branchId, "reservations", values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["branch_settings", branchId] }),
+  });
+
+  if (isLoading || !form) {
+    return <div className="card-surface h-32 animate-pulse opacity-60" />;
+  }
+
+  function field(key: keyof ReservationSettings, label: string) {
+    return (
+      <div>
+        <label className="text-xs font-bold text-muted-foreground">{label}</label>
+        <input
+          type="number"
+          min={0}
+          disabled={!canManage}
+          value={form![key] as number}
+          onChange={(e) =>
+            setForm((prev) => (prev ? { ...prev, [key]: Number(e.target.value) } : prev))
+          }
+          className="mt-1 w-full rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand disabled:opacity-60"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <section className="card-surface p-5">
+      <h2 className="flex items-center gap-2 text-sm font-extrabold">
+        <CalendarDays className="size-4 text-brand" aria-hidden />
+        إعدادات الحجوزات
+      </h2>
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          disabled={!canManage}
+          checked={form.enabled}
+          onChange={(e) =>
+            setForm((prev) => (prev ? { ...prev, enabled: e.target.checked } : prev))
+          }
+          className="size-4 accent-[var(--accent)]"
+        />
+        تفعيل الحجوزات لهذا الفرع
+      </label>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {field("min_party_size", "أقل عدد أفراد")}
+        {field("max_party_size", "أعلى عدد أفراد")}
+        {field("slot_duration_minutes", "مدة الجلسة (دقيقة)")}
+        {field("advance_booking_days", "الحجز المسبق (أيام)")}
+        {field("buffer_minutes", "فاصل بين الحجوزات (دقيقة)")}
+      </div>
+      {canManage ? (
+        <button
+          type="button"
+          disabled={saveMutation.isPending}
+          onClick={() => saveMutation.mutate(form)}
+          className="mt-4 rounded-pill bg-brand px-5 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function WaitlistSettingsTab({ branchId, canManage }: { branchId: string; canManage: boolean }) {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["branch_settings", branchId],
+    queryFn: () => fetchBranchSettings(branchId),
+  });
+  const [form, setForm] = useState<WaitlistSettings | null>(null);
+
+  useEffect(() => {
+    if (data && !form) setForm(data.waitlist);
+  }, [data, form]);
+
+  const saveMutation = useMutation({
+    mutationFn: (values: WaitlistSettings) => updateBranchSettings(branchId, "waitlist", values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["branch_settings", branchId] }),
+  });
+
+  if (isLoading || !form) {
+    return <div className="card-surface h-32 animate-pulse opacity-60" />;
+  }
+
+  return (
+    <section className="card-surface p-5">
+      <h2 className="flex items-center gap-2 text-sm font-extrabold">
+        <Users className="size-4 text-brand" aria-hidden />
+        إعدادات قائمة الانتظار
+      </h2>
+      <label className="mt-4 flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          disabled={!canManage}
+          checked={form.enabled}
+          onChange={(e) =>
+            setForm((prev) => (prev ? { ...prev, enabled: e.target.checked } : prev))
+          }
+          className="size-4 accent-[var(--accent)]"
+        />
+        تفعيل قائمة الانتظار لهذا الفرع
+      </label>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-bold text-muted-foreground">أعلى عدد أفراد</label>
+          <input
+            type="number"
+            min={0}
+            disabled={!canManage}
+            value={form.max_party_size}
+            onChange={(e) =>
+              setForm((prev) => (prev ? { ...prev, max_party_size: Number(e.target.value) } : prev))
+            }
+            className="mt-1 w-full rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand disabled:opacity-60"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-muted-foreground">
+            وقت الانتظار الافتراضي (دقيقة)
+          </label>
+          <input
+            type="number"
+            min={0}
+            disabled={!canManage}
+            value={form.default_wait_minutes}
+            onChange={(e) =>
+              setForm((prev) =>
+                prev ? { ...prev, default_wait_minutes: Number(e.target.value) } : prev,
+              )
+            }
+            className="mt-1 w-full rounded-card border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand disabled:opacity-60"
+          />
+        </div>
+      </div>
+      {canManage ? (
+        <button
+          type="button"
+          disabled={saveMutation.isPending}
+          onClick={() => saveMutation.mutate(form)}
+          className="mt-4 rounded-pill bg-brand px-5 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50"
+        >
+          {saveMutation.isPending ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
+        </button>
+      ) : null}
     </section>
   );
 }

@@ -7,6 +7,7 @@ export type OrderStatus =
 export type OrderType = "delivery" | "pickup" | "curbside" | "dinein";
 export type RefundKind = "order" | "deposit";
 export type PosStatus = "not_sent" | "queued" | "sending" | "sent" | "failed";
+export type OrderSource = "web" | "call_center" | string;
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "بانتظار القبول",
@@ -23,6 +24,13 @@ export const ORDER_TYPE_LABEL: Record<OrderType, string> = {
   pickup: "استلام",
   curbside: "استلام من السيارة",
   dinein: "محلي",
+};
+
+export const ORDER_SOURCE_LABEL: Record<string, string> = {
+  web: "الموقع الإلكتروني",
+  call_center: "خدمة العملاء",
+  app: "التطبيق",
+  qr: "QR",
 };
 
 export type StaffOrderItem = {
@@ -47,6 +55,10 @@ export type StaffOrder = {
   payment_status: PaymentStatus;
   paid_at: string | null;
   placed_at: string;
+  source: OrderSource;
+  created_by_staff_id: string | null;
+  branches: { name_ar: string } | null;
+  created_by_staff: { name: string } | null;
   pos_ref: string | null;
   pos_status: PosStatus;
   pos_last_error: string | null;
@@ -58,6 +70,18 @@ export type StaffOrder = {
   delivered_at: string | null;
   customers: { name: string; phone: string } | null;
   order_items: StaffOrderItem[];
+};
+
+export type OrderFilterOptions = {
+  branches: Array<{ id: string; name: string }>;
+  sources: string[];
+};
+
+export type StaffOrderFilters = {
+  branchId?: string | null;
+  orderType?: OrderType | null;
+  paymentMethod?: "cash" | "online" | null;
+  source?: string | null;
 };
 
 export type OrderRefund = {
@@ -86,16 +110,29 @@ export async function staffSignOut() {
   await supabase.auth.signOut();
 }
 
-export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOrder[]> {
+export async function fetchOrderFilterOptions(): Promise<OrderFilterOptions> {
+  if (!supabase) return { branches: [], sources: [] };
+  const { data, error } = await supabase.rpc("staff_order_filter_options");
+  if (error) throw error;
+  return data as OrderFilterOptions;
+}
+
+export async function fetchStaffOrders(statuses: OrderStatus[], filters: StaffOrderFilters = {}): Promise<StaffOrder[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
+  let query = supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, pos_ref, pos_status, pos_last_error, pos_sent_at, driver_id, delivery_provider_id, delivery_assignment_type, delivery_assigned_at, delivered_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, source, created_by_staff_id, branches(name_ar), created_by_staff:staff!orders_created_by_staff_id_fkey(name), pos_ref, pos_status, pos_last_error, pos_sent_at, driver_id, delivery_provider_id, delivery_assignment_type, delivery_assigned_at, delivered_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
-    .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)")
-    .order("placed_at", { ascending: true });
+    .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)");
+
+  if (filters.branchId) query = query.eq("branch_id", filters.branchId);
+  if (filters.orderType) query = query.eq("order_type", filters.orderType);
+  if (filters.paymentMethod) query = query.eq("payment_method", filters.paymentMethod);
+  if (filters.source) query = query.eq("source", filters.source);
+
+  const { data, error } = await query.order("placed_at", { ascending: true });
   if (error) throw error;
   return (data ?? []) as unknown as StaffOrder[];
 }

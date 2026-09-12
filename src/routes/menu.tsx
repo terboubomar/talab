@@ -80,7 +80,7 @@ function MenuPage() {
           setActive(visible.target.dataset["categoryId"]);
         }
       },
-      { rootMargin: "-88px 0px -65% 0px", threshold: 0 },
+      { rootMargin: "-126px 0px -65% 0px", threshold: 0 },
     );
 
     categories.forEach((category) => {
@@ -162,23 +162,26 @@ function MenuPage() {
   const total = cartTotal(cart);
 
   return (
-    <main className="min-h-screen bg-[#fdfdfd] pb-20 text-black lg:pb-6" dir="rtl">
+    <main className="min-h-screen bg-surface-sunk pb-20 text-ink lg:pb-8" dir="rtl">
+      <OrderContextBar
+        selection={selection}
+        count={count}
+        onSelect={() => setSelectorOpen(true)}
+        onCart={checkout}
+      />
+
       {banners.length > 0 ? <StorefrontHero banners={banners} /> : null}
 
-      <section className="menuPage mb-3 flex-grow">
-        <div className="mx-auto w-full max-w-[1140px] px-[15px]">
-          <MobileCategories categories={categories} active={active} onSelect={scrollTo} />
+      <section className="mb-3 flex-grow">
+        <div className="mx-auto w-full max-w-[1140px] px-4 sm:px-[15px]">
+          <CategoryNav categories={categories} active={active} onSelect={scrollTo} />
 
           <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
-            <div className="hidden lg:col-span-3 lg:block">
-              <DesktopCategories categories={categories} active={active} onSelect={scrollTo} />
-            </div>
-
-            <section className="min-w-0 lg:col-span-6">
+            <section className="min-w-0 lg:col-span-9">
               {isLoading ? (
                 <div className="space-y-3">
                   {[0, 1, 2, 3].map((item) => (
-                    <div key={item} className="h-[136px] animate-pulse rounded-[10px] border border-[#ededed] bg-white" />
+                    <div key={item} className="h-[136px] animate-pulse rounded-card bg-surface-raised" />
                   ))}
                 </div>
               ) : isError ? (
@@ -186,7 +189,7 @@ function MenuPage() {
               ) : categories.length === 0 ? (
                 <Notice title="القائمة غير متاحة حالياً" body="حاول مرة أخرى بعد قليل." />
               ) : (
-                <div className="space-y-10">
+                <div className="space-y-12">
                   {categories.map((category) => (
                     <CategorySection
                       key={category.id}
@@ -203,7 +206,7 @@ function MenuPage() {
 
             <aside className="hidden lg:col-span-3 lg:block">
               {cart.length > 0 ? (
-                <div className="sticky top-5">
+                <div className="sticky top-32">
                   <DesktopCart cart={cart} total={total} count={count} onCheckout={checkout} />
                 </div>
               ) : null}
@@ -213,14 +216,14 @@ function MenuPage() {
       </section>
 
       {count > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ededed] bg-white p-3 lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface-raised p-3 lg:hidden">
           <button
             type="button"
             onClick={checkout}
-            className="mx-auto flex w-full max-w-lg items-center justify-between rounded-[10px] bg-brand px-5 py-3.5 text-sm font-extrabold text-brand-ink"
+            className="mx-auto flex min-h-11 w-full max-w-lg items-center justify-between rounded-card bg-brand px-5 py-3 text-sm font-semibold text-brand-ink"
           >
             <span>عرض السلة</span>
-            <span>{count} · {formatSAR(total)}</span>
+            <span className="tabular-nums">{count} · {formatSAR(total)}</span>
           </button>
         </div>
       ) : null}
@@ -243,11 +246,63 @@ function MenuPage() {
   );
 }
 
+function OrderContextBar({
+  selection,
+  count,
+  onSelect,
+  onCart,
+}: {
+  selection: Selection | null;
+  count: number;
+  onSelect: () => void;
+  onCart: () => void;
+}) {
+  return (
+    <header className="sticky top-0 z-40 bg-brand px-2 py-2">
+      <div className="mx-auto flex h-12 max-w-[1110px] gap-2">
+        <button
+          type="button"
+          onClick={onSelect}
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-sm bg-surface px-3 text-start text-ink shadow-1"
+        >
+          <MapPin className="size-4 shrink-0 text-brand" aria-hidden />
+          {selection ? (
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] leading-none text-ink-3">{ORDER_TYPE_LABEL[selection.orderType] ?? selection.orderType}</span>
+              <span className="mt-1 block truncate text-[13px] font-semibold">{selection.branchNameAr}</span>
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] leading-none text-ink-3">نوع الطلب والفرع</span>
+              <span className="mt-1 block truncate text-[13px] font-semibold">اختر لبدء الطلب</span>
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={onCart}
+          aria-label="السلة"
+          className="relative grid size-12 shrink-0 place-items-center rounded-sm bg-surface text-ink shadow-1"
+        >
+          <ShoppingBag className="size-5" aria-hidden />
+          {count > 0 ? (
+            <span className="absolute -end-1 -top-1 min-w-5 rounded-pill bg-ink px-1 text-center text-[10px] font-semibold text-surface tabular-nums">
+              {count}
+            </span>
+          ) : null}
+        </button>
+      </div>
+    </header>
+  );
+}
+
 function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
     if (banners.length <= 1) return;
+    if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setInterval(() => setIndex((current) => (current + 1) % banners.length), 5000);
     return () => window.clearInterval(timer);
   }, [banners.length]);
@@ -271,8 +326,8 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
   );
 
   return (
-    <section className="mx-auto mb-3 w-full max-w-[1140px] px-[15px]">
-      <div className="w-full overflow-hidden bg-white" style={{ aspectRatio: "1110 / 410" }}>
+    <section className="mx-auto mb-3 w-full max-w-[1140px] px-4 pt-3 sm:px-[15px]">
+      <div className="w-full overflow-hidden bg-surface" style={{ aspectRatio: "1110 / 410" }}>
         {banner.link_url ? (
           <a
             href={banner.link_url}
@@ -288,16 +343,32 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
   );
 }
 
-function MobileCategories({ categories, active, onSelect }: { categories: Category[]; active: string | null; onSelect: (id: string) => void }) {
+function CategoryNav({
+  categories,
+  active,
+  onSelect,
+}: {
+  categories: Category[];
+  active: string | null;
+  onSelect: (id: string) => void;
+}) {
   if (!categories.length) return null;
   return (
-    <nav className="sticky top-0 z-30 -mx-[15px] mb-4 flex gap-2 overflow-x-auto bg-[#fdfdfd]/95 px-[15px] py-2 no-scrollbar lg:hidden">
+    <nav
+      aria-label="فئات القائمة"
+      className="sticky top-16 z-30 -mx-4 mb-6 flex gap-2 overflow-x-auto bg-surface-sunk/95 px-4 py-2 backdrop-blur no-scrollbar sm:-mx-[15px] sm:px-[15px]"
+    >
       {categories.map((category) => (
         <button
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`shrink-0 rounded-[8px] px-4 py-2 text-xs font-bold ${active === category.id ? "bg-[#090306] text-white" : "bg-[#f1f1f1] text-[#777]"}`}
+          aria-current={active === category.id ? "true" : undefined}
+          className={`min-h-11 shrink-0 rounded-sm px-4 text-[13px] font-medium transition-colors ${
+            active === category.id
+              ? "bg-ink text-surface"
+              : "bg-surface-raised text-ink-2 hover:text-ink"
+          }`}
         >
           {category.name_ar}
         </button>
@@ -306,31 +377,21 @@ function MobileCategories({ categories, active, onSelect }: { categories: Catego
   );
 }
 
-function DesktopCategories({ categories, active, onSelect }: { categories: Category[]; active: string | null; onSelect: (id: string) => void }) {
-  if (!categories.length) return null;
-  return (
-    <aside className="sticky top-5 overflow-hidden rounded-[10px] border border-[#ededed] bg-white">
-      {categories.map((category) => (
-        <button
-          key={category.id}
-          type="button"
-          onClick={() => onSelect(category.id)}
-          className={`block w-full border-b border-[#f1f1f1] px-4 py-4 text-right text-sm font-bold last:border-b-0 ${active === category.id ? "bg-[#090306] text-white" : "bg-white text-black hover:bg-[#f7f7f7]"}`}
-        >
-          {category.name_ar}
-        </button>
-      ))}
-    </aside>
-  );
-}
-
-function CategorySection({ category, onOpen, registerRef }: { category: Category; onOpen: (product: Product) => void; registerRef: (node: HTMLElement | null) => void }) {
+function CategorySection({
+  category,
+  onOpen,
+  registerRef,
+}: {
+  category: Category;
+  onOpen: (product: Product) => void;
+  registerRef: (node: HTMLElement | null) => void;
+}) {
   const products = category.products ?? [];
   return (
-    <section ref={registerRef} data-category-id={category.id} className="scroll-mt-20">
-      <div className="mb-3 flex flex-col gap-0.5">
-        <h2 className="text-base font-bold sm:text-lg">{category.name_ar}</h2>
-        {category.name_en ? <small className="text-xs font-normal text-[#878787]">{category.name_en}</small> : null}
+    <section ref={registerRef} data-category-id={category.id} className="scroll-mt-32">
+      <div className="mb-4 flex flex-col gap-1">
+        <h2 className="font-heading text-xl font-semibold text-ink">{category.name_ar}</h2>
+        {category.name_en ? <small className="text-xs text-ink-3">{category.name_en}</small> : null}
       </div>
       <div className="space-y-3">
         {products.map((product) => <ProductRow key={product.id} product={product} onOpen={onOpen} />)}
@@ -346,52 +407,71 @@ function ProductRow({ product, onOpen }: { product: Product; onOpen: (product: P
       type="button"
       disabled={outOfStock}
       onClick={() => onOpen(product)}
-      className={`flex w-full items-stretch justify-between gap-2 rounded-[10px] border border-[#ededed] bg-white p-2 text-right ${outOfStock ? "cursor-not-allowed opacity-45" : ""}`}
+      className={`flex w-full items-stretch justify-between gap-3 rounded-card border border-line bg-surface-raised p-2 text-start transition-colors ${
+        outOfStock ? "cursor-not-allowed opacity-50" : "hover:border-brand/35"
+      }`}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 p-1">
         <div className="flex-grow">
-          <h3 className="text-sm font-bold sm:text-base">{product.name_ar}</h3>
-          {product.desc_ar ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#878787]">{product.desc_ar}</p> : null}
+          <div className="flex items-center gap-2">
+            <h3 className="text-[13px] font-medium leading-5 text-ink sm:text-[15px]">{product.name_ar}</h3>
+            {outOfStock ? <span className="rounded-pill bg-danger/10 px-2 py-0.5 text-[10px] font-medium text-danger">غير متوفر</span> : null}
+          </div>
+          {product.desc_ar ? <p className="mt-1 line-clamp-2 text-sm leading-[1.6] text-ink-2">{product.desc_ar}</p> : null}
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span className="rounded-[6px] px-2 py-1 text-sm font-medium text-black">{formatSAR(Number(product.price ?? 0))}</span>
-          {product.calories != null ? <span className="rounded-[6px] px-2 py-1 text-[11px] text-[#878787]">{formatCalories(product.calories)}</span> : null}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-ink tabular-nums">{formatSAR(Number(product.price ?? 0))}</span>
+          {product.calories != null ? <span className="text-xs text-ink-3">{formatCalories(product.calories)}</span> : null}
         </div>
       </div>
-      <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[8px] bg-[#f1f1f1] sm:h-[120px] sm:w-[120px]">
+      <div className="size-[104px] shrink-0 overflow-hidden rounded-sm bg-surface-sunk sm:size-[110px]">
         {product.image ? (
           <img src={product.image} alt={product.name_ar} loading="lazy" className="h-full w-full object-cover" />
         ) : (
-          <span className="grid h-full w-full place-items-center text-[#878787]"><ImageOff className="size-6" /></span>
+          <span className="grid h-full w-full place-items-center text-ink-3"><ImageOff className="size-6" aria-hidden /></span>
         )}
       </div>
     </button>
   );
 }
 
-function DesktopCart({ cart, total, count, onCheckout }: { cart: CartLine[]; total: number; count: number; onCheckout: () => void }) {
+function DesktopCart({
+  cart,
+  total,
+  count,
+  onCheckout,
+}: {
+  cart: CartLine[];
+  total: number;
+  count: number;
+  onCheckout: () => void;
+}) {
   return (
-    <div className="rounded-[10px] border border-[#ededed] bg-white p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold">السلة</h3>
-        <span className="text-xs text-[#878787]">{count} صنف</span>
+    <div className="rounded-card border border-line bg-surface-raised p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold">السلة</h3>
+        <span className="text-xs text-ink-3 tabular-nums">{count} صنف</span>
       </div>
-      <div className="mt-3 divide-y divide-[#ededed]">
+      <div className="mt-3 divide-y divide-line-soft">
         {cart.slice(0, 6).map((line) => (
-          <div key={line.key} className="py-2 text-xs">
+          <div key={line.key} className="py-3 text-xs">
             <div className="flex justify-between gap-2">
-              <span>{line.quantity}× {line.nameAr}</span>
-              <span className="font-bold">{formatSAR(line.unitPrice * line.quantity)}</span>
+              <span className="font-medium text-ink">{line.quantity}× {line.nameAr}</span>
+              <span className="shrink-0 font-semibold text-ink tabular-nums">{formatSAR(line.unitPrice * line.quantity)}</span>
             </div>
+            {line.optionNames.length > 0 ? (
+              <p className="mt-1 leading-5 text-ink-2">{line.optionNames.join("، ")}</p>
+            ) : null}
+            {line.note ? <p className="mt-1 leading-5 text-ink-3">ملاحظة: {line.note}</p> : null}
           </div>
         ))}
-        {cart.length > 6 ? <p className="py-2 text-xs text-[#878787]">+ {cart.length - 6} أصناف أخرى</p> : null}
+        {cart.length > 6 ? <p className="py-2 text-xs text-ink-3">+ {cart.length - 6} أصناف أخرى</p> : null}
       </div>
-      <div className="mt-3 flex justify-between border-t border-[#ededed] pt-3 text-sm font-bold">
-        <span>الإجمالي</span><span>{formatSAR(total)}</span>
+      <div className="mt-3 flex justify-between border-t border-line pt-3 text-sm font-semibold">
+        <span>الإجمالي</span><span className="tabular-nums">{formatSAR(total)}</span>
       </div>
-      <button type="button" onClick={onCheckout} className="mt-3 w-full rounded-[10px] bg-brand px-4 py-3 text-sm font-bold text-brand-ink">
-        إكمال الطلب
+      <button type="button" onClick={onCheckout} className="mt-3 min-h-11 w-full rounded-card bg-brand px-4 py-3 text-sm font-semibold text-brand-ink">
+        تنفيذ الطلب
       </button>
     </div>
   );
@@ -425,39 +505,45 @@ function OrderContextModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 sm:items-center sm:p-5" onClick={onClose}>
-      <section className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-t-[18px] bg-white shadow-2xl sm:rounded-[14px]" onClick={(event) => event.stopPropagation()}>
-        <header className="flex items-center justify-between border-b border-[#ededed] px-4 py-4">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/45 sm:items-center sm:p-5" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-context-title"
+        className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-t-card bg-surface-raised shadow-2xl sm:rounded-card"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-center justify-between border-b border-line px-4 py-4">
           <div>
-            <h2 className="text-base font-bold">ابدأ طلبك</h2>
-            <p className="mt-1 text-xs text-[#878787]">اختر الفرع وطريقة الطلب</p>
+            <h2 id="order-context-title" className="text-base font-semibold">ابدأ طلبك</h2>
+            <p className="mt-1 text-xs text-ink-3">اختر الفرع وطريقة الطلب</p>
           </div>
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full bg-[#f1f1f1]" aria-label="إغلاق">
-            <X className="size-4" />
+          <button type="button" onClick={onClose} className="grid size-11 place-items-center rounded-pill bg-surface-sunk" aria-label="إغلاق">
+            <X className="size-4" aria-hidden />
           </button>
         </header>
 
         <div className="max-h-[calc(88vh-78px)] overflow-y-auto p-4">
           {loading ? (
-            <div className="space-y-3">{[0, 1, 2].map((item) => <div key={item} className="h-28 animate-pulse rounded-[10px] bg-[#f1f1f1]" />)}</div>
+            <div className="space-y-3">{[0, 1, 2].map((item) => <div key={item} className="h-28 animate-pulse rounded-card bg-surface-sunk" />)}</div>
           ) : grouped.length === 0 ? (
             <Notice title="لا توجد فروع متاحة" body="حاول مرة أخرى بعد قليل." />
           ) : (
             <div className="space-y-6">
               {grouped.map(([city, cityBranches]) => (
                 <section key={city}>
-                  <div className="mb-2 flex items-center gap-2 text-sm font-bold"><MapPin className="size-4" /> {city}</div>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4" aria-hidden /> {city}</div>
                   <div className="space-y-2">
                     {cityBranches.map((branch) => (
-                      <article key={String(branch.branch_id ?? branch.id)} className="rounded-[10px] border border-[#ededed] p-3">
-                        <h3 className="text-sm font-bold">{branch.name_ar}</h3>
+                      <article key={String(branch.branch_id ?? branch.id)} className="rounded-card border border-line p-3">
+                        <h3 className="text-sm font-semibold">{branch.name_ar}</h3>
                         <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                           {(branch.order_types ?? []).map((type) => (
                             <button
                               key={type}
                               type="button"
                               onClick={() => onChoose(branch, type)}
-                              className="rounded-[8px] bg-[#090306] px-3 py-2.5 text-xs font-bold text-white"
+                              className="min-h-11 rounded-sm bg-ink px-3 py-2.5 text-xs font-medium text-surface"
                             >
                               {ORDER_TYPE_LABEL[type] ?? type}
                             </button>
@@ -478,9 +564,9 @@ function OrderContextModal({
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-[10px] border border-[#ededed] bg-white p-6 text-center">
-      <h3 className="font-bold">{title}</h3>
-      <p className="mt-2 text-sm text-[#878787]">{body}</p>
+    <div className="rounded-card border border-line bg-surface-raised p-6 text-center">
+      <h3 className="font-semibold">{title}</h3>
+      <p className="mt-2 text-sm text-ink-2">{body}</p>
     </div>
   );
 }

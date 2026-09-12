@@ -521,11 +521,7 @@ function WalletTab({
   return (
     <div className="space-y-4">
       <div className="card-surface p-4">
-        <p className="text-sm font-extrabold">{customer.name || "بدون اسم"}</p>
-        <p className="text-xs text-muted-foreground" dir="ltr">
-          {customer.phone ?? "—"}
-        </p>
-        <div className="mt-3 rounded-card bg-secondary p-4">
+        <div className="rounded-card bg-secondary p-4">
           <p className="text-xs font-bold text-muted-foreground">رصيد المحفظة الحالي</p>
           <p className="mt-1 text-2xl font-extrabold">{formatSAR(customer.balance)}</p>
         </div>

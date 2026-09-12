@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "./supabase";
+import { TENANT_SLUG } from "./storefront";
 
 export type ModifierOption = {
   id: string;
@@ -45,13 +46,28 @@ export type Category = {
   products: Product[] | null;
 };
 
-export function menuQuery(branchId: string) {
+/**
+ * When branchId is null the public storefront returns a browse-only preview
+ * from the tenant's first active menu branch. Actual ordering always reloads
+ * storefront_menu(branchId), which applies real branch pricing/availability.
+ */
+export function menuQuery(branchId: string | null) {
   return queryOptions({
-    queryKey: ["storefront_menu", branchId],
+    queryKey: branchId
+      ? ["storefront_menu", branchId]
+      : ["storefront_menu_preview", TENANT_SLUG],
     queryFn: async (): Promise<Category[]> => {
       if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-      const { data, error } = await supabase.rpc("storefront_menu", {
-        p_branch_id: branchId,
+      if (branchId) {
+        const { data, error } = await supabase.rpc("storefront_menu", {
+          p_branch_id: branchId,
+        });
+        if (error) throw error;
+        return (data ?? []) as Category[];
+      }
+
+      const { data, error } = await supabase.rpc("storefront_menu_preview", {
+        p_tenant_slug: TENANT_SLUG,
       });
       if (error) throw error;
       return (data ?? []) as Category[];

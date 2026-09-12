@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { BannerManager } from "@/components/admin/BannerManager";
 import { usePermissions } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_staffShell/admin/marketing-tools")({
@@ -15,6 +17,7 @@ type MarketingTool = {
   implemented: boolean;
   to?: string;
   perm?: string;
+  workspace?: "banners";
 };
 
 const GROUPS: string[] = [
@@ -112,9 +115,11 @@ const TOOLS: MarketingTool[] = [
   {
     id: "banners",
     title: "البنرات الاعلانية",
-    description: "إدارة البنرات الظاهرة في واجهة المتجر.",
+    description: "رفع وترتيب وجدولة البنرات الظاهرة أعلى واجهة المتجر.",
     group: "أدوات الواجهة",
-    implemented: false,
+    implemented: true,
+    perm: "marketing.banners",
+    workspace: "banners",
   },
   {
     id: "announcement-bar",
@@ -134,12 +139,14 @@ const TOOLS: MarketingTool[] = [
 
 function MarketingToolsPage() {
   const { loading, can } = usePermissions();
+  const [workspace, setWorkspace] = useState<"banners" | null>(null);
 
   const hasAccess =
     can("marketing.tools") ||
     can("coupons.view") ||
     can("marketing.loyalty") ||
-    can("marketing.cashback");
+    can("marketing.cashback") ||
+    can("marketing.banners");
 
   if (loading) {
     return (
@@ -157,6 +164,10 @@ function MarketingToolsPage() {
         </div>
       </main>
     );
+  }
+
+  if (workspace === "banners") {
+    return <BannerManager onBack={() => setWorkspace(null)} />;
   }
 
   const implementedCount = TOOLS.filter((t) => t.implemented).length;
@@ -199,7 +210,7 @@ function MarketingToolsPage() {
               <h2 className="mb-3 text-sm font-extrabold">{group}</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((tool) => (
-                  <ToolCard key={tool.id} tool={tool} can={can} />
+                  <ToolCard key={tool.id} tool={tool} can={can} onOpenWorkspace={setWorkspace} />
                 ))}
               </div>
             </section>
@@ -213,9 +224,11 @@ function MarketingToolsPage() {
 function ToolCard({
   tool,
   can,
+  onOpenWorkspace,
 }: {
   tool: MarketingTool;
   can: (key: string) => boolean;
+  onOpenWorkspace: (workspace: "banners") => void;
 }) {
   const permitted = tool.perm ? can(tool.perm) : false;
 
@@ -249,6 +262,27 @@ function ToolCard({
         </div>
         <p className="text-[11px] font-bold text-danger">لا تملك الصلاحية</p>
       </div>
+    );
+  }
+
+  if (tool.workspace) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenWorkspace(tool.workspace!)}
+        className="card-surface flex flex-col justify-between gap-3 p-4 text-start transition-colors hover:border-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      >
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold">{tool.title}</h3>
+            <span className="rounded-pill bg-success/10 px-2 py-0.5 text-[10px] font-bold text-success">
+              متاح
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{tool.description}</p>
+        </div>
+        <p className="text-[11px] font-bold text-brand">فتح الأداة</p>
+      </button>
     );
   }
 

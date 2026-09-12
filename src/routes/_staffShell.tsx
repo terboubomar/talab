@@ -50,7 +50,12 @@ function StaffShell() {
     );
   }
 
-  const visibleItems = NAV_ITEMS.filter((item) => can(item.perm));
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (item.anyPerm && item.anyPerm.length > 0) {
+      return item.anyPerm.some((p) => can(p));
+    }
+    return can(item.perm!);
+  });
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-secondary">

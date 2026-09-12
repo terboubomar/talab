@@ -51,6 +51,11 @@ export type StaffOrder = {
   pos_status: PosStatus;
   pos_last_error: string | null;
   pos_sent_at: string | null;
+  driver_id: string | null;
+  delivery_provider_id: string | null;
+  delivery_assignment_type: "driver" | "provider" | null;
+  delivery_assigned_at: string | null;
+  delivered_at: string | null;
   customers: { name: string; phone: string } | null;
   order_items: StaffOrderItem[];
 };
@@ -86,7 +91,7 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, pos_ref, pos_status, pos_last_error, pos_sent_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, pos_ref, pos_status, pos_last_error, pos_sent_at, driver_id, delivery_provider_id, delivery_assignment_type, delivery_assigned_at, delivered_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
     .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)")

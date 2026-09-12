@@ -3,6 +3,7 @@ import {
   ArrowRight,
   CarFront,
   Check,
+  Clock3,
   MapPin,
   Phone,
   Search,
@@ -31,10 +32,7 @@ type Props = {
 
 type Step = "branch" | "orderType";
 
-const ORDER_TYPE_META: Record<
-  OrderType,
-  { description: string; icon: typeof Store }
-> = {
+const ORDER_TYPE_META: Record<OrderType, { description: string; icon: typeof Store }> = {
   pickup: { description: "استلم طلبك جاهزاً من الفرع", icon: ShoppingBag },
   delivery: { description: "نوصل الطلب إلى عنوانك", icon: Truck },
   curbside: { description: "نوصله لك عند السيارة", icon: CarFront },
@@ -47,6 +45,18 @@ function branchId(branch: Branch) {
 
 function normalize(value: string | null | undefined) {
   return (value ?? "").trim().toLocaleLowerCase("ar");
+}
+
+function formatBusyUntil(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("ar-SA", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Riyadh",
+  }).format(date);
 }
 
 export function StorefrontOrderContextModal({
@@ -64,7 +74,7 @@ export function StorefrontOrderContextModal({
   const [step, setStep] = useState<Step>("branch");
   const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [query, setQuery] = useState("");
-  const [city, setCity] = useState<string>("all");
+  const [city, setCity] = useState("all");
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -109,6 +119,7 @@ export function StorefrontOrderContextModal({
     setSelectedBranch(null);
     setQuery("");
     setCity("all");
+
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const focusTimer = window.setTimeout(() => searchRef.current?.focus(), 0);
@@ -163,7 +174,9 @@ export function StorefrontOrderContextModal({
     window.setTimeout(() => searchRef.current?.focus(), 0);
   }
 
-  const availableCount = branches.filter((branch) => !branch.busy && (branch.order_types ?? []).length > 0).length;
+  const availableCount = branches.filter(
+    (branch) => !branch.busy && (branch.order_types ?? []).length > 0,
+  ).length;
   const activeBranchId = selection?.branchId ?? null;
 
   return (
@@ -192,9 +205,7 @@ export function StorefrontOrderContextModal({
                 {step === "branch" ? "اختر الفرع" : "كيف حاب تستلم طلبك؟"}
               </h2>
               <p className="mt-1 text-sm text-ink-2">
-                {step === "branch"
-                  ? `${availableCount} فرع متاح للطلب الآن`
-                  : selectedBranch?.name_ar}
+                {step === "branch" ? `${availableCount} فرع متاح للطلب الآن` : selectedBranch?.name_ar}
               </p>
             </div>
             <button
@@ -267,22 +278,25 @@ export function StorefrontOrderContextModal({
                         </div>
                         <span className="text-xs text-ink-3 tabular-nums">{cityBranches.length} فروع</span>
                       </div>
+
                       <div className="grid gap-2 sm:grid-cols-2">
                         {cityBranches.map((branch) => {
                           const id = branchId(branch);
                           const isBusy = Boolean(branch.busy);
+                          const busyUntil = isBusy ? formatBusyUntil(branch.busy_until) : null;
                           const types = branch.order_types ?? [];
                           const disabled = isBusy || types.length === 0;
                           const isCurrent = Boolean(activeBranchId && id === activeBranchId);
+
                           return (
                             <button
                               key={id || `${cityName}-${branch.name_ar}`}
                               type="button"
                               disabled={disabled}
                               onClick={() => chooseBranch(branch)}
-                              className={`min-h-[104px] rounded-card border p-4 text-start transition-colors ${
+                              className={`min-h-[112px] rounded-card border p-4 text-start transition-colors ${
                                 disabled
-                                  ? "cursor-not-allowed border-line bg-surface-sunk opacity-65"
+                                  ? "cursor-not-allowed border-line bg-surface-sunk opacity-70"
                                   : isCurrent
                                     ? "border-brand bg-brand-soft"
                                     : "border-line bg-surface hover:border-brand/40"
@@ -300,10 +314,18 @@ export function StorefrontOrderContextModal({
                                   </div>
                                   {branch.name_en ? <p className="mt-0.5 truncate text-xs text-ink-3" dir="ltr">{branch.name_en}</p> : null}
                                 </div>
+
                                 <span className={`shrink-0 rounded-pill px-2 py-1 text-[10px] font-semibold ${isBusy ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
-                                  {isBusy ? "مشغول حالياً" : "متاح"}
+                                  {isBusy ? "مشغول" : "متاح"}
                                 </span>
                               </div>
+
+                              {isBusy ? (
+                                <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-warning">
+                                  <Clock3 className="size-3.5" aria-hidden />
+                                  <span>{busyUntil ? `مشغول حتى ${busyUntil}` : "مشغول حالياً"}</span>
+                                </div>
+                              ) : null}
 
                               <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-3">
                                 {branch.phone ? (
@@ -358,12 +380,12 @@ export function StorefrontOrderContextModal({
                     onClick={() => onChoose(selectedBranch, type)}
                     className="group flex min-h-[104px] items-center gap-4 rounded-card border border-line bg-surface p-4 text-start transition-colors hover:border-brand/50 hover:bg-brand-soft"
                   >
-                    <span className="grid size-12 shrink-0 place-items-center rounded-card bg-surface-sunk text-brand transition-colors group-hover:bg-surface">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-pill bg-surface-sunk text-brand group-hover:bg-surface">
                       <Icon className="size-5" aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-ink">{ORDER_TYPE_LABEL[type]}</span>
-                      <span className="mt-1 block text-xs leading-5 text-ink-2">{meta.description}</span>
+                      <span className="mt-1 block text-xs leading-5 text-ink-3">{meta.description}</span>
                     </span>
                   </button>
                 );

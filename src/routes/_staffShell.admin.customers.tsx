@@ -10,6 +10,12 @@ import {
   fetchWalletLedger,
   type CustomerWalletRow,
 } from "@/lib/wallet";
+import {
+  adjustPoints,
+  fetchCustomerPoints,
+  fetchPointsLedger,
+  pointsReasonLabel,
+} from "@/lib/loyalty";
 
 export const Route = createFileRoute("/_staffShell/admin/customers")({
   head: () => ({ meta: [{ title: "العملاء — طلب" }] }),

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { PaymentsModuleNav } from "@/components/admin/PaymentsModuleNav";
 import { RefundPanel } from "@/components/admin/RefundPanel";
 import { formatSAR } from "@/lib/menu";
 import { usePermissions } from "@/lib/permissions";
@@ -53,11 +54,20 @@ function RefundsPage() {
   return (
     <main className="min-h-screen pb-12">
       <header className="border-b border-border bg-background px-5 py-5">
-        <h1 className="text-lg font-extrabold">الاستردادات</h1>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Link to="/admin/payments" className="hover:text-foreground hover:underline">
+            المدفوعات
+          </Link>
+          <span>/</span>
+          <span className="font-bold text-foreground">آخر عمليات الاسترجاع</span>
+        </div>
+        <h1 className="mt-2 text-lg font-extrabold">آخر عمليات الاسترجاع</h1>
         <p className="mt-1 text-xs text-muted-foreground">
           تسجيل ومراجعة الاستردادات اليدوية للطلبات المكتملة أو الملغاة.
         </p>
       </header>
+
+      <PaymentsModuleNav active="refunds" />
 
       <div className="space-y-4 px-5 py-6">
         <div className="card-surface p-4">

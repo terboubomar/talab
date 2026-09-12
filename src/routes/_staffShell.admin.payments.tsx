@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, ShieldCheck } from "lucide-react";
 
+import { PaymentsModuleNav } from "@/components/admin/PaymentsModuleNav";
 import {
   fetchPaymentAccounts,
   fetchRecentPaymentTransactions,
@@ -97,9 +98,11 @@ function PaymentsPage() {
       <header className="border-b border-border bg-background px-5 py-5">
         <h1 className="text-lg font-extrabold">المدفوعات</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          مركز متابعة بوابات الدفع والحركات الإلكترونية. مفاتيح وأسرار مزود الدفع لا تُخزّن في لوحة التحكم أو المتصفح.
+          مركز متابعة بوابات الدفع والحركات الإلكترونية، والاستردادات، وإعدادات الحساب.
         </p>
       </header>
+
+      <PaymentsModuleNav active="payments" />
 
       <div className="space-y-5 px-5 py-6">
         <section className="rounded-card border border-brand/20 bg-brand/5 p-4">

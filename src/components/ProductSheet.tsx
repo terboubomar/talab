@@ -75,7 +75,10 @@ function hasNutrition(values: Array<number | null | undefined>) {
 
 export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenSuggested }: Props) {
   const { data: detail, isLoading: detailLoading } = useQuery(productDetailQuery(product.id, branchId));
-  const { data: crossSells = [] } = useQuery(productCrossSellsQuery(product.id, branchId));
+  const { data: crossSells = [] } = useQuery({
+    ...productCrossSellsQuery(product.id, branchId),
+    enabled: Boolean(branchId),
+  });
   const current = detail ?? product;
   const groups = useMemo(() => groupsOf(current), [current]);
   const step = current.qty_step && current.qty_step > 0 ? current.qty_step : 1;
@@ -209,8 +212,8 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenS
     }
   }
 
-  function add() {
-    onAdd({
+  function buildLine(): CartLine {
+    return {
       key: `${product.id}:${chosen.map((option) => option.id).sort().join(",")}:${note}`,
       productId: product.id,
       nameAr: current.name_ar,
@@ -220,7 +223,17 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenS
       optionNames: chosen.map((option) => option.name_ar),
       modifierIds: chosen.map((option) => option.id),
       note,
-    });
+    };
+  }
+
+  function add() {
+    onAdd(buildLine());
+  }
+
+  function addMainThenOpenSuggested(productId: string) {
+    if (!branchId || !onOpenSuggested || !requiredSatisfied || current.in_stock === false) return;
+    onAdd(buildLine());
+    onOpenSuggested(productId);
   }
 
   const nutrition = detail?.nutrition ?? null;
@@ -328,20 +341,6 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenS
             </section>
           ) : null}
 
-          {crossSells.length > 0 && onOpenSuggested ? (
-            <section className="mt-6" aria-labelledby={`cross-sells-${product.id}`}>
-              <div>
-                <h3 id={`cross-sells-${product.id}`} className="text-sm font-semibold text-ink">أضف مع طلبك</h3>
-                <p className="mt-0.5 text-xs text-ink-3">اقتراحات مختارة لهذا الصنف</p>
-              </div>
-              <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
-                {crossSells.map((suggested) => (
-                  <CrossSellCard key={suggested.id} product={suggested} onOpen={() => onOpenSuggested(suggested.id)} />
-                ))}
-              </div>
-            </section>
-          ) : null}
-
           {groups.map((group) => {
             const picked = selected[group.id] ?? [];
             const cap = group.max && group.max > 0 ? group.max : (group.options ?? []).length;
@@ -387,6 +386,28 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenS
               <button type="button" aria-label="زيادة الكمية" disabled={quantity + step > maxQty} onClick={() => setQuantity((value) => Math.min(maxQty, value + step))} className="grid size-11 place-items-center rounded-pill disabled:opacity-40"><Plus aria-hidden className="size-4" /></button>
             </div>
           </section>
+
+          {branchId && crossSells.length > 0 && onOpenSuggested ? (
+            <section className="mt-6" aria-labelledby={`cross-sells-${product.id}`}>
+              <div>
+                <h3 id={`cross-sells-${product.id}`} className="text-sm font-semibold text-ink">أضف مع طلبك</h3>
+                <p className="mt-0.5 text-xs leading-5 text-ink-3">
+                  اختيار أي إضافة سيضيف <span className="font-semibold text-ink-2">{current.name_ar}</span> إلى السلة أولاً ثم يفتح الإضافة.
+                </p>
+                {!requiredSatisfied ? <p className="mt-1 text-xs font-medium text-warning">أكمل الخيارات المطلوبة أولاً.</p> : null}
+              </div>
+              <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:-mx-5 sm:px-5">
+                {crossSells.map((suggested) => (
+                  <CrossSellCard
+                    key={suggested.id}
+                    product={suggested}
+                    disabled={!requiredSatisfied || current.in_stock === false}
+                    onOpen={() => addMainThenOpenSuggested(suggested.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <div className="border-t border-border bg-background px-4 py-4 sm:px-5">
@@ -400,12 +421,13 @@ export function ProductSheet({ product, branchId = null, onClose, onAdd, onOpenS
   );
 }
 
-function CrossSellCard({ product, onOpen }: { product: ProductCrossSell; onOpen: () => void }) {
+function CrossSellCard({ product, onOpen, disabled = false }: { product: ProductCrossSell; onOpen: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onOpen}
-      className="w-[148px] shrink-0 overflow-hidden rounded-card border border-line bg-surface text-start transition-colors hover:border-brand/40"
+      className="w-[148px] shrink-0 overflow-hidden rounded-card border border-line bg-surface text-start transition-colors hover:border-brand/40 disabled:cursor-not-allowed disabled:opacity-45"
     >
       <div className="aspect-square w-full bg-surface-sunk">
         {product.image ? (

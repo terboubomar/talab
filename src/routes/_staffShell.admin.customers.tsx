@@ -8,6 +8,7 @@ import {
   adjustWallet,
   fetchCustomersWithWallet,
   fetchWalletLedger,
+  walletReasonLabel,
   type CustomerWalletRow,
 } from "@/lib/wallet";
 import {
@@ -607,7 +608,9 @@ function WalletTab({
                       {formatSAR(Math.abs(entry.delta))}
                     </td>
                     <td className="px-3 py-2 font-bold">{formatSAR(entry.balance_after)}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{entry.reason ?? "—"}</td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {walletReasonLabel(entry.reason)}
+                    </td>
                     <td className="px-3 py-2 text-muted-foreground">{entry.actor_name ?? "—"}</td>
                   </tr>
                 ))}

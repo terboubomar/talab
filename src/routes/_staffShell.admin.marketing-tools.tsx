@@ -68,9 +68,11 @@ const TOOLS: MarketingTool[] = [
   {
     id: "cashback-settings",
     title: "إعدادات الكاش باك",
-    description: "إرجاع نسبة من قيمة الطلب كرصيد في المحفظة.",
+    description: "نسبة الكاش باك، الحد الأقصى، الحد الأدنى للطلب، وفترة الصلاحية.",
     group: "الولاء والتحفيز",
-    implemented: false,
+    implemented: true,
+    to: "/admin/cashback",
+    perm: "marketing.cashback",
   },
   {
     id: "bundles",
@@ -134,7 +136,10 @@ function MarketingToolsPage() {
   const { loading, can } = usePermissions();
 
   const hasAccess =
-    can("marketing.tools") || can("coupons.view") || can("marketing.loyalty");
+    can("marketing.tools") ||
+    can("coupons.view") ||
+    can("marketing.loyalty") ||
+    can("marketing.cashback");
 
   if (loading) {
     return (

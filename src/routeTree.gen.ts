@@ -18,6 +18,7 @@ import { Route as PaymentResultRouteImport } from './routes/payment-result'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminSignupRouteImport } from './routes/admin.signup'
 import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
+import { Route as StaffShellAdminCashbackRouteImport } from './routes/_staffShell.admin.cashback'
 import { Route as StaffShellAdminCouponsRouteImport } from './routes/_staffShell.admin.coupons'
 import { Route as StaffShellAdminCustomersRouteImport } from './routes/_staffShell.admin.customers'
 import { Route as StaffShellAdminLoyaltyRouteImport } from './routes/_staffShell.admin.loyalty'
@@ -71,6 +72,11 @@ const AdminSignupRoute = AdminSignupRouteImport.update({
 const StaffShellAdminIndexRoute = StaffShellAdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => StaffShellRoute,
+} as any)
+const StaffShellAdminCashbackRoute = StaffShellAdminCashbackRouteImport.update({
+  id: '/admin/cashback',
+  path: '/admin/cashback',
   getParentRoute: () => StaffShellRoute,
 } as any)
 const StaffShellAdminCouponsRoute = StaffShellAdminCouponsRouteImport.update({
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/signup': typeof AdminSignupRoute
+  '/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/signup': typeof AdminSignupRoute
+  '/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/payment-result': typeof PaymentResultRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/signup': typeof AdminSignupRoute
+  '/_staffShell/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/_staffShell/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/_staffShell/admin/customers': typeof StaffShellAdminCustomersRoute
   '/_staffShell/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
@@ -198,6 +207,7 @@ export interface FileRouteTypes {
     | '/payment-result'
     | '/admin/login'
     | '/admin/signup'
+    | '/admin/cashback'
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/loyalty'
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/payment-result'
     | '/admin/login'
     | '/admin/signup'
+    | '/admin/cashback'
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/loyalty'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/payment-result'
     | '/admin/login'
     | '/admin/signup'
+    | '/_staffShell/admin/cashback'
     | '/_staffShell/admin/coupons'
     | '/_staffShell/admin/customers'
     | '/_staffShell/admin/loyalty'
@@ -328,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminIndexRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/cashback': {
+      id: '/_staffShell/admin/cashback'
+      path: '/admin/cashback'
+      fullPath: '/admin/cashback'
+      preLoaderRoute: typeof StaffShellAdminCashbackRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
     '/_staffShell/admin/coupons': {
       id: '/_staffShell/admin/coupons'
       path: '/admin/coupons'
@@ -402,6 +421,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface StaffShellRouteChildren {
+  StaffShellAdminCashbackRoute: typeof StaffShellAdminCashbackRoute
   StaffShellAdminCouponsRoute: typeof StaffShellAdminCouponsRoute
   StaffShellAdminCustomersRoute: typeof StaffShellAdminCustomersRoute
   StaffShellAdminLoyaltyRoute: typeof StaffShellAdminLoyaltyRoute
@@ -416,6 +436,7 @@ interface StaffShellRouteChildren {
 }
 
 const StaffShellRouteChildren: StaffShellRouteChildren = {
+  StaffShellAdminCashbackRoute: StaffShellAdminCashbackRoute,
   StaffShellAdminCouponsRoute: StaffShellAdminCouponsRoute,
   StaffShellAdminCustomersRoute: StaffShellAdminCustomersRoute,
   StaffShellAdminLoyaltyRoute: StaffShellAdminLoyaltyRoute,

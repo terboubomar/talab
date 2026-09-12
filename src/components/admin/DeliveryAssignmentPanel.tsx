@@ -80,7 +80,7 @@ export function DeliveryAssignmentPanel({ orderId, status }: { orderId: string; 
             <CheckCircle2 aria-hidden className="size-3" /> تم الإسناد
           </span>
         ) : (
-          <span className="rounded-pill bg-warning/10 px-2.5 py-1 text-[10px] font-bold text-warning">بانتظار الإسناد</span>
+          <span className="rounded-pill bg-brand/10 px-2.5 py-1 text-[10px] font-bold text-brand">بانتظار الإسناد</span>
         )}
       </div>
 

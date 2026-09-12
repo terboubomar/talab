@@ -6,6 +6,7 @@ export type OrderStatus =
 
 export type OrderType = "delivery" | "pickup" | "curbside" | "dinein";
 export type RefundKind = "order" | "deposit";
+export type PosStatus = "not_sent" | "queued" | "sending" | "sent" | "failed";
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   pending: "بانتظار القبول",
@@ -46,6 +47,10 @@ export type StaffOrder = {
   payment_status: PaymentStatus;
   paid_at: string | null;
   placed_at: string;
+  pos_ref: string | null;
+  pos_status: PosStatus;
+  pos_last_error: string | null;
+  pos_sent_at: string | null;
   customers: { name: string; phone: string } | null;
   order_items: StaffOrderItem[];
 };
@@ -68,7 +73,6 @@ export async function staffSignIn(email: string, password: string) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
-
   await supabase.rpc("staff_claim_invite");
 }
 
@@ -82,7 +86,7 @@ export async function fetchStaffOrders(statuses: OrderStatus[]): Promise<StaffOr
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
+      "id, branch_id, order_type, status, notes, subtotal, deposit_total, total, payment_method, payment_status, paid_at, placed_at, pos_ref, pos_status, pos_last_error, pos_sent_at, customers(name, phone), order_items(id, name_ar, qty, line_total, notes, order_item_modifiers(id, name_ar, price))",
     )
     .in("status", statuses)
     .or("payment_method.eq.cash,payment_status.in.(paid,partially_refunded)")
@@ -102,68 +106,25 @@ export async function fetchOrderRefunds(orderId: string): Promise<OrderRefund[]>
   return (data ?? []) as unknown as OrderRefund[];
 }
 
-export async function createManualRefund(input: {
-  orderId: string;
-  amount: number;
-  reason: string;
-  kind: RefundKind;
-}) {
+export async function createManualRefund(input: { orderId: string; amount: number; reason: string; kind: RefundKind }) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_create_manual_refund", {
-    p_order_id: input.orderId,
-    p_amount: input.amount,
-    p_reason: input.reason,
-    p_kind: input.kind,
+    p_order_id: input.orderId, p_amount: input.amount, p_reason: input.reason, p_kind: input.kind,
   });
   if (error) throw error;
-  return data as {
-    id: string;
-    order_id: string;
-    kind: RefundKind;
-    amount: number;
-    currency: string;
-    status: "completed";
-    execution_mode: "manual";
-    remaining: number;
-  };
+  return data as { id: string; order_id: string; kind: RefundKind; amount: number; currency: string; status: "completed"; execution_mode: "manual"; remaining: number };
 }
 
-export async function createGatewayRefund(input: {
-  orderId: string;
-  amount: number;
-  reason: string;
-  kind: RefundKind;
-}) {
+export async function createGatewayRefund(input: { orderId: string; amount: number; reason: string; kind: RefundKind }) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-  const { data, error } = await supabase.functions.invoke("moyasar-refund", {
-    body: {
-      orderId: input.orderId,
-      amount: input.amount,
-      reason: input.reason,
-      kind: input.kind,
-    },
-  });
+  const { data, error } = await supabase.functions.invoke("moyasar-refund", { body: { orderId: input.orderId, amount: input.amount, reason: input.reason, kind: input.kind } });
   if (error) throw error;
   if (!data?.ok) throw new Error(data?.error ?? "gateway_refund_failed");
-  return data as {
-    ok: true;
-    refund: {
-      id: string;
-      order_id: string;
-      status: "completed";
-      amount: number;
-      currency: string;
-      payment_transaction_id: string;
-    };
-    provider: { id: string; status: string };
-  };
+  return data as { ok: true; refund: { id: string; order_id: string; status: "completed"; amount: number; currency: string; payment_transaction_id: string }; provider: { id: string; status: string } };
 }
 
 export async function updateOrderStatus(orderId: string, next: OrderStatus) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-  const { error } = await supabase.rpc("staff_update_order_status", {
-    p_order_id: orderId,
-    p_new_status: next,
-  });
+  const { error } = await supabase.rpc("staff_update_order_status", { p_order_id: orderId, p_new_status: next });
   if (error) throw error;
 }

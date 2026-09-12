@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.moyasar-refund]
 verify_jwt = true
+
+[functions.foodics-test]
+verify_jwt = true
+
+[functions.foodics-menu-pull]
+verify_jwt = true
+
+[functions.foodics-order-push]
+verify_jwt = true

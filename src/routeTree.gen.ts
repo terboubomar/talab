@@ -22,6 +22,7 @@ import { Route as StaffShellAdminCustomerGroupsRouteImport } from './routes/_sta
 import { Route as StaffShellAdminCustomerDetailRouteImport } from './routes/_staffShell.admin.customers.$customerId'
 import { Route as StaffShellAdminLoyaltyRouteImport } from './routes/_staffShell.admin.loyalty'
 import { Route as StaffShellAdminMarketingToolsRouteImport } from './routes/_staffShell.admin.marketing-tools'
+import { Route as StaffShellAdminNewOrderRouteImport } from './routes/_staffShell.admin.new-order'
 import { Route as StaffShellAdminOrdersRouteImport } from './routes/_staffShell.admin.orders'
 import { Route as StaffShellAdminPaymentsRouteImport } from './routes/_staffShell.admin.payments'
 import { Route as StaffShellAdminProductsRouteImport } from './routes/_staffShell.admin.products'
@@ -50,6 +51,7 @@ const StaffShellAdminCustomerGroupsRoute = StaffShellAdminCustomerGroupsRouteImp
 const StaffShellAdminCustomerDetailRoute = StaffShellAdminCustomerDetailRouteImport.update({ id: '/admin/customers/$customerId', path: '/admin/customers/$customerId', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminLoyaltyRoute = StaffShellAdminLoyaltyRouteImport.update({ id: '/admin/loyalty', path: '/admin/loyalty', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminMarketingToolsRoute = StaffShellAdminMarketingToolsRouteImport.update({ id: '/admin/marketing-tools', path: '/admin/marketing-tools', getParentRoute: () => StaffShellRoute } as any)
+const StaffShellAdminNewOrderRoute = StaffShellAdminNewOrderRouteImport.update({ id: '/admin/new-order', path: '/admin/new-order', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({ id: '/admin/orders', path: '/admin/orders', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminPaymentsRoute = StaffShellAdminPaymentsRouteImport.update({ id: '/admin/payments', path: '/admin/payments', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminProductsRoute = StaffShellAdminProductsRouteImport.update({ id: '/admin/products', path: '/admin/products', getParentRoute: () => StaffShellRoute } as any)
@@ -74,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers/$customerId': typeof StaffShellAdminCustomerDetailRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
   '/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
+  '/admin/new-order': typeof StaffShellAdminNewOrderRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
   '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
@@ -99,6 +102,7 @@ export interface FileRoutesByTo {
   '/admin/customers/$customerId': typeof StaffShellAdminCustomerDetailRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
   '/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
+  '/admin/new-order': typeof StaffShellAdminNewOrderRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
   '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
@@ -126,6 +130,7 @@ export interface FileRoutesById {
   '/_staffShell/admin/customers/$customerId': typeof StaffShellAdminCustomerDetailRoute
   '/_staffShell/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
   '/_staffShell/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
+  '/_staffShell/admin/new-order': typeof StaffShellAdminNewOrderRoute
   '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
   '/_staffShell/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/_staffShell/admin/products': typeof StaffShellAdminProductsRoute
@@ -153,6 +158,7 @@ export interface FileRouteTypes {
     | '/admin/customers/$customerId'
     | '/admin/loyalty'
     | '/admin/marketing-tools'
+    | '/admin/new-order'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -177,6 +183,7 @@ export interface FileRouteTypes {
     | '/admin/customers/$customerId'
     | '/admin/loyalty'
     | '/admin/marketing-tools'
+    | '/admin/new-order'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -202,6 +209,7 @@ export interface FileRouteTypes {
     | '/_staffShell/admin/customers/$customerId'
     | '/_staffShell/admin/loyalty'
     | '/_staffShell/admin/marketing-tools'
+    | '/_staffShell/admin/new-order'
     | '/_staffShell/admin/orders'
     | '/_staffShell/admin/payments'
     | '/_staffShell/admin/products'
@@ -241,6 +249,7 @@ declare module '@tanstack/react-router' {
     '/_staffShell/admin/customers/$customerId': { id: '/_staffShell/admin/customers/$customerId'; path: '/admin/customers/$customerId'; fullPath: '/admin/customers/$customerId'; preLoaderRoute: typeof StaffShellAdminCustomerDetailRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/loyalty': { id: '/_staffShell/admin/loyalty'; path: '/admin/loyalty'; fullPath: '/admin/loyalty'; preLoaderRoute: typeof StaffShellAdminLoyaltyRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/marketing-tools': { id: '/_staffShell/admin/marketing-tools'; path: '/admin/marketing-tools'; fullPath: '/admin/marketing-tools'; preLoaderRoute: typeof StaffShellAdminMarketingToolsRouteImport; parentRoute: typeof StaffShellRoute }
+    '/_staffShell/admin/new-order': { id: '/_staffShell/admin/new-order'; path: '/admin/new-order'; fullPath: '/admin/new-order'; preLoaderRoute: typeof StaffShellAdminNewOrderRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/orders': { id: '/_staffShell/admin/orders'; path: '/admin/orders'; fullPath: '/admin/orders'; preLoaderRoute: typeof StaffShellAdminOrdersRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/payments': { id: '/_staffShell/admin/payments'; path: '/admin/payments'; fullPath: '/admin/payments'; preLoaderRoute: typeof StaffShellAdminPaymentsRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/products': { id: '/_staffShell/admin/products'; path: '/admin/products'; fullPath: '/admin/products'; preLoaderRoute: typeof StaffShellAdminProductsRouteImport; parentRoute: typeof StaffShellRoute }
@@ -260,6 +269,7 @@ interface StaffShellRouteChildren {
   StaffShellAdminCustomerDetailRoute: typeof StaffShellAdminCustomerDetailRoute
   StaffShellAdminLoyaltyRoute: typeof StaffShellAdminLoyaltyRoute
   StaffShellAdminMarketingToolsRoute: typeof StaffShellAdminMarketingToolsRoute
+  StaffShellAdminNewOrderRoute: typeof StaffShellAdminNewOrderRoute
   StaffShellAdminOrdersRoute: typeof StaffShellAdminOrdersRoute
   StaffShellAdminPaymentsRoute: typeof StaffShellAdminPaymentsRoute
   StaffShellAdminProductsRoute: typeof StaffShellAdminProductsRoute
@@ -278,6 +288,7 @@ const StaffShellRouteChildren: StaffShellRouteChildren = {
   StaffShellAdminCustomerDetailRoute,
   StaffShellAdminLoyaltyRoute,
   StaffShellAdminMarketingToolsRoute,
+  StaffShellAdminNewOrderRoute,
   StaffShellAdminOrdersRoute,
   StaffShellAdminPaymentsRoute,
   StaffShellAdminProductsRoute,

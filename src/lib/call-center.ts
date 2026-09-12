@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { OrderType } from "@/lib/staff";
+import type { CheckoutPaymentMethod } from "@/lib/storefront";
 
 export type CallCenterZone = {
   area_id: string;
@@ -49,6 +50,15 @@ export type CallCenterOrderItem = {
   note?: string;
 };
 
+export type CallCenterOrderResult = {
+  order_id: string;
+  total: number;
+  status: "pending";
+  payment_method: CheckoutPaymentMethod;
+  payment_status: "unpaid" | "pending";
+  payment_account_id: string | null;
+};
+
 export async function fetchCallCenterSetup(): Promise<CallCenterSetup> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_call_center_setup");
@@ -70,13 +80,14 @@ export async function createCallCenterOrder(input: {
   customerPhone: string;
   notes?: string | null;
   items: CallCenterOrderItem[];
+  paymentMethod: CheckoutPaymentMethod;
   areaId?: string | null;
   lat?: number | null;
   lng?: number | null;
   addressText?: string | null;
-}): Promise<{ order_id: string; total: number; status: "pending" }> {
+}): Promise<CallCenterOrderResult> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-  const { data, error } = await supabase.rpc("staff_create_call_center_order", {
+  const { data, error } = await supabase.rpc("staff_create_call_center_order_v2", {
     p_branch_id: input.branchId,
     p_order_type: input.orderType,
     p_customer_name: input.customerName.trim(),
@@ -87,7 +98,8 @@ export async function createCallCenterOrder(input: {
     p_lat: input.lat ?? null,
     p_lng: input.lng ?? null,
     p_address_text: input.addressText?.trim() || null,
+    p_payment_method: input.paymentMethod,
   });
   if (error) throw error;
-  return data as { order_id: string; total: number; status: "pending" };
+  return data as CallCenterOrderResult;
 }

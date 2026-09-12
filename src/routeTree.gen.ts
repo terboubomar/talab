@@ -15,6 +15,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminSignupRouteImport } from './routes/admin.signup'
 import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.admin.index'
 import { Route as StaffShellAdminAppsRouteImport } from './routes/_staffShell.admin.apps'
+import { Route as StaffShellAdminBranchesRouteImport } from './routes/_staffShell.admin.branches'
 import { Route as StaffShellAdminCashbackRouteImport } from './routes/_staffShell.admin.cashback'
 import { Route as StaffShellAdminCouponsRouteImport } from './routes/_staffShell.admin.coupons'
 import { Route as StaffShellAdminCustomersRouteImport } from './routes/_staffShell.admin.customers'
@@ -44,6 +45,7 @@ const AdminSignupRoute = AdminSignupRouteImport.update({ id: '/admin/signup', pa
 
 const StaffShellAdminIndexRoute = StaffShellAdminIndexRouteImport.update({ id: '/admin/', path: '/admin/', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminAppsRoute = StaffShellAdminAppsRouteImport.update({ id: '/admin/apps', path: '/admin/apps', getParentRoute: () => StaffShellRoute } as any)
+const StaffShellAdminBranchesRoute = StaffShellAdminBranchesRouteImport.update({ id: '/admin/branches', path: '/admin/branches', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminCashbackRoute = StaffShellAdminCashbackRouteImport.update({ id: '/admin/cashback', path: '/admin/cashback', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminCouponsRoute = StaffShellAdminCouponsRouteImport.update({ id: '/admin/coupons', path: '/admin/coupons', getParentRoute: () => StaffShellRoute } as any)
 const StaffShellAdminCustomersRoute = StaffShellAdminCustomersRouteImport.update({ id: '/admin/customers', path: '/admin/customers', getParentRoute: () => StaffShellRoute } as any)
@@ -69,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/admin/signup': typeof AdminSignupRoute
   '/admin/': typeof StaffShellAdminIndexRoute
   '/admin/apps': typeof StaffShellAdminAppsRoute
+  '/admin/branches': typeof StaffShellAdminBranchesRoute
   '/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
@@ -95,6 +98,7 @@ export interface FileRoutesByTo {
   '/admin/signup': typeof AdminSignupRoute
   '/admin': typeof StaffShellAdminIndexRoute
   '/admin/apps': typeof StaffShellAdminAppsRoute
+  '/admin/branches': typeof StaffShellAdminBranchesRoute
   '/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
@@ -123,6 +127,7 @@ export interface FileRoutesById {
   '/admin/signup': typeof AdminSignupRoute
   '/_staffShell/admin/': typeof StaffShellAdminIndexRoute
   '/_staffShell/admin/apps': typeof StaffShellAdminAppsRoute
+  '/_staffShell/admin/branches': typeof StaffShellAdminBranchesRoute
   '/_staffShell/admin/cashback': typeof StaffShellAdminCashbackRoute
   '/_staffShell/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/_staffShell/admin/customers': typeof StaffShellAdminCustomersRoute
@@ -151,6 +156,7 @@ export interface FileRouteTypes {
     | '/admin/signup'
     | '/admin/'
     | '/admin/apps'
+    | '/admin/branches'
     | '/admin/cashback'
     | '/admin/coupons'
     | '/admin/customers'
@@ -176,6 +182,7 @@ export interface FileRouteTypes {
     | '/admin/signup'
     | '/admin'
     | '/admin/apps'
+    | '/admin/branches'
     | '/admin/cashback'
     | '/admin/coupons'
     | '/admin/customers'
@@ -202,6 +209,7 @@ export interface FileRouteTypes {
     | '/admin/signup'
     | '/_staffShell/admin/'
     | '/_staffShell/admin/apps'
+    | '/_staffShell/admin/branches'
     | '/_staffShell/admin/cashback'
     | '/_staffShell/admin/coupons'
     | '/_staffShell/admin/customers'
@@ -242,6 +250,7 @@ declare module '@tanstack/react-router' {
     '/admin/signup': { id: '/admin/signup'; path: '/admin/signup'; fullPath: '/admin/signup'; preLoaderRoute: typeof AdminSignupRouteImport; parentRoute: typeof rootRouteImport }
     '/_staffShell/admin/': { id: '/_staffShell/admin/'; path: '/admin'; fullPath: '/admin/'; preLoaderRoute: typeof StaffShellAdminIndexRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/apps': { id: '/_staffShell/admin/apps'; path: '/admin/apps'; fullPath: '/admin/apps'; preLoaderRoute: typeof StaffShellAdminAppsRouteImport; parentRoute: typeof StaffShellRoute }
+    '/_staffShell/admin/branches': { id: '/_staffShell/admin/branches'; path: '/admin/branches'; fullPath: '/admin/branches'; preLoaderRoute: typeof StaffShellAdminBranchesRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/cashback': { id: '/_staffShell/admin/cashback'; path: '/admin/cashback'; fullPath: '/admin/cashback'; preLoaderRoute: typeof StaffShellAdminCashbackRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/coupons': { id: '/_staffShell/admin/coupons'; path: '/admin/coupons'; fullPath: '/admin/coupons'; preLoaderRoute: typeof StaffShellAdminCouponsRouteImport; parentRoute: typeof StaffShellRoute }
     '/_staffShell/admin/customers': { id: '/_staffShell/admin/customers'; path: '/admin/customers'; fullPath: '/admin/customers'; preLoaderRoute: typeof StaffShellAdminCustomersRouteImport; parentRoute: typeof StaffShellRoute }
@@ -262,6 +271,7 @@ declare module '@tanstack/react-router' {
 interface StaffShellRouteChildren {
   StaffShellAdminIndexRoute: typeof StaffShellAdminIndexRoute
   StaffShellAdminAppsRoute: typeof StaffShellAdminAppsRoute
+  StaffShellAdminBranchesRoute: typeof StaffShellAdminBranchesRoute
   StaffShellAdminCashbackRoute: typeof StaffShellAdminCashbackRoute
   StaffShellAdminCouponsRoute: typeof StaffShellAdminCouponsRoute
   StaffShellAdminCustomersRoute: typeof StaffShellAdminCustomersRoute
@@ -281,6 +291,7 @@ interface StaffShellRouteChildren {
 const StaffShellRouteChildren: StaffShellRouteChildren = {
   StaffShellAdminIndexRoute,
   StaffShellAdminAppsRoute,
+  StaffShellAdminBranchesRoute,
   StaffShellAdminCashbackRoute,
   StaffShellAdminCouponsRoute,
   StaffShellAdminCustomersRoute,

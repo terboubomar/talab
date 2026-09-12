@@ -15,7 +15,6 @@ as $$
     where t.slug = p_tenant_slug
       and t.status in ('trial','active')
       and b.status = 'active'
-      and coalesce(b.busy, false) = false
       and exists (
         select 1
         from public.branch_menus bm

@@ -125,16 +125,14 @@ function MarketplaceGrid({ integrations, onOpen }: { integrations: IntegrationPr
   }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       {[...groups.entries()].map(([category, items]) => (
         <section key={category}>
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-extrabold">{CATEGORY_LABELS[category] ?? category}</h2>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{items.length.toLocaleString("ar-SA")} تطبيق</p>
-            </div>
+          <div className="mb-2.5 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-extrabold">{CATEGORY_LABELS[category] ?? category}</h2>
+            <span className="text-[10px] font-medium text-muted-foreground">{items.length.toLocaleString("ar-SA")} تطبيق</span>
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {items.map((integration) => <MarketplaceCard key={integration.provider_id} integration={integration} onOpen={() => onOpen(integration.provider_slug)} />)}
           </div>
         </section>
@@ -147,22 +145,61 @@ function MarketplaceCard({ integration, onOpen }: { integration: IntegrationProv
   const capabilities = Array.isArray(integration.config_schema["capabilities"])
     ? (integration.config_schema["capabilities"] as string[])
     : [];
+  const visibleCapabilities = capabilities.slice(0, 2);
+  const hiddenCapabilityCount = Math.max(0, capabilities.length - visibleCapabilities.length);
   const tracking = isTrackingIntegration(integration.provider_slug);
   const configured = integration.integration_status !== "disconnected";
+  const setupLabel = configured
+    ? tracking
+      ? "معرّف التتبع محفوظ"
+      : integration.has_credentials
+        ? "جاهز للاتصال"
+        : "تم الإعداد"
+    : "يحتاج إلى إعداد";
 
   return (
-    <button type="button" onClick={onOpen} className="group card-surface relative flex min-h-56 w-full flex-col overflow-hidden border border-border p-5 text-right transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-3"><AppMark integration={integration} /><div><p className="text-base font-extrabold">{integration.name_ar}</p><p className="mt-0.5 text-xs text-muted-foreground">{integration.name_en}</p></div></div>
-        <StatusBadge status={integration.integration_status} />
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group card-surface w-full overflow-hidden border border-border p-3.5 text-right transition duration-150 hover:-translate-y-px hover:border-brand/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+    >
+      <div className="flex items-start gap-3">
+        <AppMark integration={integration} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-extrabold">{integration.name_ar}</p>
+              <p className="truncate text-[11px] text-muted-foreground">{integration.name_en}</p>
+            </div>
+            <StatusBadge status={integration.integration_status} compact />
+          </div>
+          <p className="mt-2 line-clamp-2 min-h-9 text-[11px] leading-[1.15rem] text-muted-foreground">
+            {marketplaceDescription(integration)}
+          </p>
+        </div>
       </div>
-      <p className="mt-4 text-xs leading-6 text-muted-foreground">{marketplaceDescription(integration)}</p>
-      <div className="mt-3 flex flex-wrap gap-1.5">{capabilities.map((capability) => <span key={capability} className="chip text-[10px]">{capabilityLabel(capability)}</span>)}</div>
-      <div className="mt-auto flex items-center justify-between border-t border-border pt-4 text-xs">
-        <span className={configured ? "font-bold text-success" : "text-muted-foreground"}>
-          {configured ? (tracking ? "معرّف التتبع محفوظ" : integration.has_credentials ? "بيانات الاعتماد محفوظة" : "تم الإعداد") : "يحتاج إلى إعداد"}
+
+      {visibleCapabilities.length > 0 ? (
+        <div className="mt-2.5 flex min-h-6 flex-wrap items-center gap-1">
+          {visibleCapabilities.map((capability) => (
+            <span key={capability} className="rounded-pill bg-secondary px-2 py-1 text-[9px] font-bold text-muted-foreground">
+              {capabilityLabel(capability)}
+            </span>
+          ))}
+          {hiddenCapabilityCount > 0 ? (
+            <span className="rounded-pill bg-secondary/60 px-2 py-1 text-[9px] font-bold text-muted-foreground">
+              +{hiddenCapabilityCount.toLocaleString("ar-SA")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex items-center justify-between border-t border-border/70 pt-2.5">
+        <span className={`text-[10px] font-bold ${configured ? "text-success" : "text-muted-foreground"}`}>{setupLabel}</span>
+        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-brand">
+          إدارة
+          <ChevronLeft aria-hidden className="size-3 transition-transform group-hover:-translate-x-0.5" />
         </span>
-        <span className="inline-flex items-center gap-1 font-bold text-brand">فتح التطبيق<ChevronLeft aria-hidden className="size-3.5 transition group-hover:-translate-x-0.5" /></span>
       </div>
     </button>
   );
@@ -219,10 +256,10 @@ function ComingSoonWorkspace({ integration }: { integration: IntegrationProvider
 
 function AppMark({ integration, large = false }: { integration: IntegrationProvider; large?: boolean }) {
   const [logoFailed, setLogoFailed] = useState(false);
-  const boxSize = large ? "h-14 w-20" : "h-11 w-16";
-  const fallbackSize = large ? "text-lg" : "text-sm";
+  const boxSize = large ? "h-14 w-20" : "h-10 w-12";
+  const fallbackSize = large ? "text-lg" : "text-xs";
   const showLogo = Boolean(integration.logo) && !logoFailed;
-  return <div className={`${boxSize} flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-background p-2`}>{showLogo ? <img src={integration.logo ?? undefined} alt={`${integration.name_en} logo`} className="max-h-full max-w-full object-contain" loading="lazy" onError={() => setLogoFailed(true)} /> : <span className={`${fallbackSize} font-black`}>{integration.name_en.slice(0, 1).toUpperCase()}</span>}</div>;
+  return <div className={`${boxSize} flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background p-1.5`}>{showLogo ? <img src={integration.logo ?? undefined} alt={`${integration.name_en} logo`} className="max-h-full max-w-full object-contain" loading="lazy" onError={() => setLogoFailed(true)} /> : <span className={`${fallbackSize} font-black`}>{integration.name_en.slice(0, 1).toUpperCase()}</span>}</div>;
 }
 function MetricChip({ label, value }: { label: string; value: number }) {
   return <div className="rounded-card border border-border bg-secondary/40 px-3 py-2 text-center"><p className="text-sm font-extrabold">{value.toLocaleString("ar-SA")}</p><p className="text-[10px] text-muted-foreground">{label}</p></div>;
@@ -230,12 +267,13 @@ function MetricChip({ label, value }: { label: string; value: number }) {
 function InfoPill({ icon, label }: { icon: ReactNode; label: string }) {
   return <span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-secondary/50 px-3 py-1.5 text-[11px] font-bold">{icon}{label}</span>;
 }
-function StatusBadge({ status }: { status: IntegrationProvider["integration_status"] }) {
-  if (status === "active") return <span className="rounded-pill bg-success/10 px-2.5 py-1 text-[11px] font-bold text-success">متصل</span>;
-  if (status === "configured") return <span className="rounded-pill bg-brand/10 px-2.5 py-1 text-[11px] font-bold text-brand">مهيأ</span>;
-  if (status === "error") return <span className="rounded-pill bg-danger/10 px-2.5 py-1 text-[11px] font-bold text-danger">خطأ</span>;
-  if (status === "disabled") return <span className="rounded-pill bg-secondary px-2.5 py-1 text-[11px] font-bold text-muted-foreground">معطل</span>;
-  return <span className="rounded-pill bg-secondary px-2.5 py-1 text-[11px] font-bold text-muted-foreground">غير متصل</span>;
+function StatusBadge({ status, compact = false }: { status: IntegrationProvider["integration_status"]; compact?: boolean }) {
+  const sizeClass = compact ? "px-2 py-0.5 text-[9px]" : "px-2.5 py-1 text-[11px]";
+  if (status === "active") return <span className={`shrink-0 rounded-pill bg-success/10 font-bold text-success ${sizeClass}`}>متصل</span>;
+  if (status === "configured") return <span className={`shrink-0 rounded-pill bg-brand/10 font-bold text-brand ${sizeClass}`}>مهيأ</span>;
+  if (status === "error") return <span className={`shrink-0 rounded-pill bg-danger/10 font-bold text-danger ${sizeClass}`}>خطأ</span>;
+  if (status === "disabled") return <span className={`shrink-0 rounded-pill bg-secondary font-bold text-muted-foreground ${sizeClass}`}>معطل</span>;
+  return <span className={`shrink-0 rounded-pill bg-secondary font-bold text-muted-foreground ${sizeClass}`}>غير متصل</span>;
 }
 function statusLabel(status: IntegrationProvider["integration_status"]) {
   if (status === "active") return "متصل";

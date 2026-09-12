@@ -23,6 +23,16 @@ export type Brand = {
   theme: Record<string, unknown> | null;
 };
 
+export type StorefrontBanner = {
+  id: string;
+  title_ar: string | null;
+  title_en: string | null;
+  image_url: string;
+  mobile_image_url: string | null;
+  link_url: string | null;
+  sort_order: number;
+};
+
 export type StorefrontPaymentOption = {
   account_id: string;
   provider: "moyasar" | string;
@@ -43,9 +53,7 @@ export const branchesQuery = queryOptions({
   queryKey: ["storefront_branches", TENANT_SLUG],
   queryFn: async (): Promise<Branch[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.rpc("storefront_branches", {
-      p_tenant_slug: TENANT_SLUG,
-    });
+    const { data, error } = await supabase.rpc("storefront_branches", { p_tenant_slug: TENANT_SLUG });
     if (error) throw error;
     return (data ?? []) as Branch[];
   },
@@ -56,12 +64,22 @@ export const brandQuery = queryOptions({
   queryKey: ["storefront_brand", TENANT_SLUG],
   queryFn: async (): Promise<Brand | null> => {
     if (!supabase) return null;
-    const { data, error } = await supabase.rpc("storefront_brand", {
-      p_tenant_slug: TENANT_SLUG,
-    });
+    const { data, error } = await supabase.rpc("storefront_brand", { p_tenant_slug: TENANT_SLUG });
     if (error) return null;
     const row = Array.isArray(data) ? data[0] : data;
     return (row ?? null) as Brand | null;
+  },
+  enabled: Boolean(supabase),
+  retry: false,
+});
+
+export const bannersQuery = queryOptions({
+  queryKey: ["storefront_banners", TENANT_SLUG],
+  queryFn: async (): Promise<StorefrontBanner[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.rpc("storefront_banners", { p_tenant_slug: TENANT_SLUG });
+    if (error) return [];
+    return (data ?? []) as StorefrontBanner[];
   },
   enabled: Boolean(supabase),
   retry: false,
@@ -94,43 +112,26 @@ export type Selection = {
 const STORAGE_KEY = "talab.selection";
 
 export function saveSelection(selection: Selection) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(selection));
-  } catch {
-    /* storage unavailable */
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selection)); } catch { /* storage unavailable */ }
 }
 
 export function readSelection(): Selection | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as Selection) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export function branchKey(branch: Branch, index: number) {
   return branch.branch_id ?? branch.id ?? `${branch.name_ar}-${index}`;
 }
 
-export type PlaceOrderItem = {
-  product_id: string;
-  qty: number;
-  modifier_ids?: string[];
-  note?: string;
-};
-
-export type PlaceOrderResult = {
-  order_id: string;
-  total: number;
-};
+export type PlaceOrderItem = { product_id: string; qty: number; modifier_ids?: string[]; note?: string };
+export type PlaceOrderResult = { order_id: string; total: number };
 
 export async function fetchStorefrontPaymentOption(branchId: string): Promise<StorefrontPaymentOption | null> {
   if (!supabase) return null;
-  const { data, error } = await supabase.rpc("storefront_payment_options", {
-    p_branch_id: branchId,
-  });
+  const { data, error } = await supabase.rpc("storefront_payment_options", { p_branch_id: branchId });
   if (error) return null;
   const row = Array.isArray(data) ? data[0] : data;
   return (row ?? null) as StorefrontPaymentOption | null;

@@ -75,6 +75,16 @@ export type ProductDetail = Product & {
   schedule: ProductSchedule | null;
 };
 
+export type ProductCrossSell = {
+  id: string;
+  name_ar: string;
+  name_en?: string | null;
+  price: number;
+  calories: number | null;
+  image: string | null;
+  has_options: boolean;
+};
+
 export type Category = {
   id: string;
   name_ar: string;
@@ -133,6 +143,23 @@ export function productDetailQuery(productId: string, branchId: string | null) {
         allergens: Array.isArray(row.allergens) ? row.allergens : [],
         image: row.image ?? images[0]?.url ?? null,
       } as ProductDetail;
+    },
+    retry: false,
+  });
+}
+
+export function productCrossSellsQuery(productId: string, branchId: string | null) {
+  return queryOptions({
+    queryKey: ["storefront_product_cross_sells", TENANT_SLUG, branchId ?? "preview", productId],
+    queryFn: async (): Promise<ProductCrossSell[]> => {
+      if (!supabase) return [];
+      const { data, error } = await supabase.rpc("storefront_product_cross_sells", {
+        p_tenant_slug: TENANT_SLUG,
+        p_product_id: productId,
+        p_branch_id: branchId,
+      });
+      if (error) throw error;
+      return Array.isArray(data) ? (data as ProductCrossSell[]) : [];
     },
     retry: false,
   });

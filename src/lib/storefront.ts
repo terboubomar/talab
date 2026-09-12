@@ -14,6 +14,7 @@ export type Branch = {
   city_ar: string | null;
   phone: string | null;
   busy: boolean | null;
+  busy_until?: string | null;
   order_types: OrderType[] | null;
 };
 

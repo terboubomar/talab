@@ -59,6 +59,8 @@ export const branchesQuery = queryOptions({
     return (data ?? []) as Branch[];
   },
   enabled: Boolean(supabase),
+  refetchInterval: 30_000,
+  refetchIntervalInBackground: false,
 });
 
 export const brandQuery = queryOptions({

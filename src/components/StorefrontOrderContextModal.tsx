@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Check, Clock3, MapPin, Phone, Search, X } from "lucide-react";
 
 import {
   ORDER_TYPE_LABEL,
+  brandQuery,
   type Branch,
-  type Brand,
   type OrderType,
   type Selection,
 } from "@/lib/storefront";
@@ -12,7 +13,6 @@ import {
 type Props = {
   open: boolean;
   branches: Branch[];
-  brand?: Brand | null;
   loading: boolean;
   selection: Selection | null;
   onClose: () => void;
@@ -42,12 +42,12 @@ function formatBusyUntil(value: string | null | undefined) {
 export function StorefrontOrderContextModal({
   open,
   branches,
-  brand = null,
   loading,
   selection,
   onClose,
   onChoose,
 }: Props) {
+  const { data: brand } = useQuery(brandQuery);
   const dialogRef = useRef<HTMLElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);

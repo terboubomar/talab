@@ -113,6 +113,8 @@ export type Selection = {
 };
 
 const STORAGE_KEY = "talab.selection";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ORDER_TYPES = new Set<OrderType>(["pickup", "delivery", "curbside", "dinein"]);
 
 export function saveSelection(selection: Selection) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(selection)); } catch { /* storage unavailable */ }
@@ -121,8 +123,25 @@ export function saveSelection(selection: Selection) {
 export function readSelection(): Selection | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Selection) : null;
-  } catch { return null; }
+    const saved = raw ? (JSON.parse(raw) as Selection) : null;
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      const branchId = url.searchParams.get("branch");
+      const rawOrderType = url.searchParams.get("orderType") as OrderType | null;
+      if (branchId && UUID_RE.test(branchId) && rawOrderType && ORDER_TYPES.has(rawOrderType)) {
+        return {
+          branchId,
+          branchNameAr: saved?.branchId === branchId && saved.branchNameAr ? saved.branchNameAr : "الفرع المحدد",
+          orderType: rawOrderType,
+        };
+      }
+    }
+
+    return saved;
+  } catch {
+    return null;
+  }
 }
 
 export function branchKey(branch: Branch, index: number) {

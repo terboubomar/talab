@@ -23,6 +23,7 @@ function CustomersPage() {
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const canView = can("customers.view");
+  const canViewGroups = can("customer_groups.view");
 
   const {
     data: customers = [],
@@ -107,7 +108,17 @@ function CustomersPage() {
 
         <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="card-surface h-fit p-4">
-            <p className="mb-3 text-sm font-extrabold">مجموعات العملاء</p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-sm font-extrabold">مجموعات العملاء</p>
+              {canViewGroups ? (
+                <Link
+                  to="/admin/customers/groups"
+                  className="text-[11px] font-bold text-brand hover:underline"
+                >
+                  إدارة
+                </Link>
+              ) : null}
+            </div>
             <div className="space-y-1">
               <GroupButton
                 active={groupFilter === "all"}

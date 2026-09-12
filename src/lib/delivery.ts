@@ -28,6 +28,33 @@ export type SavedAddress = {
   is_default: boolean;
 };
 
+export type DeliveryDriver = {
+  id: string;
+  name: string;
+  phone: string | null;
+};
+
+export type DeliveryProviderOption = {
+  integration_id: string;
+  provider_id: string;
+  slug: string;
+  name_ar: string;
+  name_en: string;
+  logo: string;
+  status: "configured" | "active";
+};
+
+export type DeliveryOptions = {
+  order_id: string;
+  branch_id: string;
+  driver_id: string | null;
+  delivery_provider_id: string | null;
+  delivery_assignment_type: "driver" | "provider" | null;
+  delivery_assigned_at: string | null;
+  drivers: DeliveryDriver[];
+  providers: DeliveryProviderOption[];
+};
+
 export async function fetchDeliveryZones(branchId: string): Promise<DeliveryZone[]> {
   if (!supabase) return [];
   const { data, error } = await supabase.rpc("storefront_delivery_zones", {
@@ -77,6 +104,43 @@ export async function saveAddress(params: {
   });
   if (error) throw error;
   return data as string;
+}
+
+export async function fetchDeliveryOptions(orderId: string): Promise<DeliveryOptions> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_delivery_options", { p_order_id: orderId });
+  if (error) throw error;
+  return data as DeliveryOptions;
+}
+
+export async function assignOrderDriver(orderId: string, driverId: string): Promise<void> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_assign_order_driver", {
+    p_order_id: orderId,
+    p_driver_id: driverId,
+  });
+  if (error) throw error;
+}
+
+export async function unassignOrderDriver(orderId: string): Promise<void> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_unassign_order_driver", { p_order_id: orderId });
+  if (error) throw error;
+}
+
+export async function assignOrderProvider(orderId: string, integrationId: string): Promise<void> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_assign_order_provider", {
+    p_order_id: orderId,
+    p_integration_id: integrationId,
+  });
+  if (error) throw error;
+}
+
+export async function unassignOrderProvider(orderId: string): Promise<void> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_unassign_order_provider", { p_order_id: orderId });
+  if (error) throw error;
 }
 
 /** Great-circle distance in km between two lat/lng points. */

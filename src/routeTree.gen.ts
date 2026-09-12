@@ -31,6 +31,7 @@ import { Route as StaffShellAdminPaymentsRouteImport } from './routes/_staffShel
 import { Route as StaffShellAdminProductsRouteImport } from './routes/_staffShell.admin.products'
 import { Route as StaffShellAdminRefundsRouteImport } from './routes/_staffShell.admin.refunds'
 import { Route as StaffShellAdminReportsRouteImport } from './routes/_staffShell.admin.reports'
+import { Route as StaffShellAdminSettingsRouteImport } from './routes/_staffShell.admin.settings'
 import { Route as StaffShellAdminStaffRouteImport } from './routes/_staffShell.admin.staff'
 import { Route as StaffShellAdminCustomersCustomerIdRouteImport } from './routes/_staffShell.admin.customers.$customerId'
 import { Route as StaffShellAdminCustomersGroupsRouteImport } from './routes/_staffShell.admin.customers.groups'
@@ -146,6 +147,11 @@ const StaffShellAdminReportsRoute = StaffShellAdminReportsRouteImport.update({
   path: '/admin/reports',
   getParentRoute: () => StaffShellRoute,
 } as any)
+const StaffShellAdminSettingsRoute = StaffShellAdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => StaffShellRoute,
+} as any)
 const StaffShellAdminStaffRoute = StaffShellAdminStaffRouteImport.update({
   id: '/admin/staff',
   path: '/admin/staff',
@@ -185,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/admin/products': typeof StaffShellAdminProductsRoute
   '/admin/refunds': typeof StaffShellAdminRefundsRoute
   '/admin/reports': typeof StaffShellAdminReportsRoute
+  '/admin/settings': typeof StaffShellAdminSettingsRoute
   '/admin/staff': typeof StaffShellAdminStaffRoute
   '/admin/': typeof StaffShellAdminIndexRoute
   '/admin/customers/$customerId': typeof StaffShellAdminCustomersCustomerIdRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/admin/products': typeof StaffShellAdminProductsRoute
   '/admin/refunds': typeof StaffShellAdminRefundsRoute
   '/admin/reports': typeof StaffShellAdminReportsRoute
+  '/admin/settings': typeof StaffShellAdminSettingsRoute
   '/admin/staff': typeof StaffShellAdminStaffRoute
   '/admin': typeof StaffShellAdminIndexRoute
   '/admin/customers/$customerId': typeof StaffShellAdminCustomersCustomerIdRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/_staffShell/admin/products': typeof StaffShellAdminProductsRoute
   '/_staffShell/admin/refunds': typeof StaffShellAdminRefundsRoute
   '/_staffShell/admin/reports': typeof StaffShellAdminReportsRoute
+  '/_staffShell/admin/settings': typeof StaffShellAdminSettingsRoute
   '/_staffShell/admin/staff': typeof StaffShellAdminStaffRoute
   '/_staffShell/admin/': typeof StaffShellAdminIndexRoute
   '/_staffShell/admin/customers/$customerId': typeof StaffShellAdminCustomersCustomerIdRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/refunds'
     | '/admin/reports'
+    | '/admin/settings'
     | '/admin/staff'
     | '/admin/'
     | '/admin/customers/$customerId'
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/admin/products'
     | '/admin/refunds'
     | '/admin/reports'
+    | '/admin/settings'
     | '/admin/staff'
     | '/admin'
     | '/admin/customers/$customerId'
@@ -320,6 +331,7 @@ export interface FileRouteTypes {
     | '/_staffShell/admin/products'
     | '/_staffShell/admin/refunds'
     | '/_staffShell/admin/reports'
+    | '/_staffShell/admin/settings'
     | '/_staffShell/admin/staff'
     | '/_staffShell/admin/'
     | '/_staffShell/admin/customers/$customerId'
@@ -493,6 +505,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminReportsRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/settings': {
+      id: '/_staffShell/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof StaffShellAdminSettingsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
     '/_staffShell/admin/staff': {
       id: '/_staffShell/admin/staff'
       path: '/admin/staff'
@@ -548,6 +567,7 @@ interface StaffShellRouteChildren {
   StaffShellAdminProductsRoute: typeof StaffShellAdminProductsRoute
   StaffShellAdminRefundsRoute: typeof StaffShellAdminRefundsRoute
   StaffShellAdminReportsRoute: typeof StaffShellAdminReportsRoute
+  StaffShellAdminSettingsRoute: typeof StaffShellAdminSettingsRoute
   StaffShellAdminStaffRoute: typeof StaffShellAdminStaffRoute
   StaffShellAdminIndexRoute: typeof StaffShellAdminIndexRoute
 }
@@ -566,6 +586,7 @@ const StaffShellRouteChildren: StaffShellRouteChildren = {
   StaffShellAdminProductsRoute: StaffShellAdminProductsRoute,
   StaffShellAdminRefundsRoute: StaffShellAdminRefundsRoute,
   StaffShellAdminReportsRoute: StaffShellAdminReportsRoute,
+  StaffShellAdminSettingsRoute: StaffShellAdminSettingsRoute,
   StaffShellAdminStaffRoute: StaffShellAdminStaffRoute,
   StaffShellAdminIndexRoute: StaffShellAdminIndexRoute,
 }

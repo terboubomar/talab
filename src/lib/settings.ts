@@ -114,6 +114,13 @@ export type PaymentSettings = {
   online_payment_logo_path: string | null;
 };
 
+export type SettingsBranchOption = {
+  id: string;
+  name_ar: string;
+  name_en: string | null;
+  status: string;
+};
+
 export async function fetchSettings<T extends object>(groupKey: SettingsGroupKey): Promise<T> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_settings_read", { p_group_key: groupKey });
@@ -132,6 +139,13 @@ export async function saveSettings<T extends object>(
   });
   if (error) throw error;
   return (data ?? value) as T;
+}
+
+export async function fetchSettingsBranchOptions(): Promise<SettingsBranchOption[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc("staff_settings_branch_options");
+  if (error) throw error;
+  return Array.isArray(data) ? (data as SettingsBranchOption[]) : [];
 }
 
 const PRIVATE_DOCUMENT_TYPES = new Set([

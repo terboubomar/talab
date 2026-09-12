@@ -43,35 +43,23 @@ Deno.serve(async (req: Request) => {
     if (!foodics?.integration_id || !foodics?.has_credentials) return json({ error: "foodics_not_configured" }, 409);
     if (foodics.integration_status === "disabled") return json({ error: "foodics_disabled" }, 409);
 
-    const { data: credentials, error: credErr } = await admin.rpc("service_integration_credentials", {
-      p_integration_id: foodics.integration_id,
-    });
+    const { data: credentials, error: credErr } = await admin.rpc("service_integration_credentials", { p_integration_id: foodics.integration_id });
     if (credErr || !credentials) return json({ error: "foodics_credentials_unavailable" }, 503);
     const token = credentials.access_token || credentials.token;
     if (!token) return json({ error: "foodics_access_token_missing" }, 409);
 
-    const { data: order, error: orderErr } = await admin
-      .from("orders")
-      .select("id,tenant_id,branch_id,customer_id,order_type,status,notes,subtotal,total,scheduled_for,created_at,pos_ref,pos_status")
-      .eq("id", orderId)
-      .maybeSingle();
+    const { data: order, error: orderErr } = await admin.from("orders")
+      .select("id,tenant_id,branch_id,order_type,status,notes,subtotal,total,scheduled_for,pos_ref,pos_status")
+      .eq("id", orderId).maybeSingle();
     if (orderErr || !order) return json({ error: "order_not_found" }, 404);
-    if (order.pos_status === "sent" && order.pos_ref) {
-      return json({ ok: true, alreadySent: true, foodicsOrderRef: order.pos_ref });
-    }
+    if (order.pos_status === "sent" && order.pos_ref) return json({ ok: true, alreadySent: true, foodicsOrderRef: order.pos_ref });
 
-    const { data: mapping } = await admin
-      .from("integration_branch_mappings")
-      .select("external_branch_id,active")
-      .eq("integration_id", foodics.integration_id)
-      .eq("branch_id", order.branch_id)
-      .maybeSingle();
+    const { data: mapping } = await admin.from("integration_branch_mappings")
+      .select("external_branch_id,active").eq("integration_id", foodics.integration_id).eq("branch_id", order.branch_id).maybeSingle();
     if (!mapping?.active || !mapping.external_branch_id) return json({ error: "foodics_branch_not_mapped" }, 409);
 
-    const [{ data: customer }, { data: items, error: itemsErr }] = await Promise.all([
-      order.customer_id ? admin.from("customers").select("name,phone").eq("id", order.customer_id).maybeSingle() : Promise.resolve({ data: null } as any),
-      admin.from("order_items").select("id,product_id,name_ar,qty,unit_price,line_total,notes").eq("order_id", order.id),
-    ]);
+    const { data: items, error: itemsErr } = await admin.from("order_items")
+      .select("id,product_id,name_ar,qty,unit_price,line_total,notes").eq("order_id", order.id);
     if (itemsErr || !items?.length) return json({ error: "order_items_missing" }, 409);
 
     const productIds = [...new Set(items.map((i: any) => i.product_id).filter(Boolean))];
@@ -81,29 +69,18 @@ Deno.serve(async (req: Request) => {
     const itemIds = items.map((i: any) => i.id);
     const { data: itemModifiers } = await admin.from("order_item_modifiers").select("id,order_item_id,modifier_id,price").in("order_item_id", itemIds);
     const modifierIds = [...new Set((itemModifiers ?? []).map((m: any) => m.modifier_id).filter(Boolean))];
-    const { data: modifiers } = modifierIds.length
-      ? await admin.from("modifiers").select("id,pos_ref").in("id", modifierIds)
-      : { data: [] as any[] };
+    const { data: modifiers } = modifierIds.length ? await admin.from("modifiers").select("id,pos_ref").in("id", modifierIds) : { data: [] as any[] };
     const modifierRef = new Map((modifiers ?? []).map((m: any) => [m.id, m.pos_ref]));
 
-    for (const item of items) {
-      if (!productRef.get(item.product_id)) return json({ error: "foodics_product_not_mapped", orderItemId: item.id }, 409);
-    }
-    for (const mod of itemModifiers ?? []) {
-      if (mod.modifier_id && !modifierRef.get(mod.modifier_id)) return json({ error: "foodics_modifier_not_mapped", modifierId: mod.modifier_id }, 409);
-    }
+    for (const item of items) if (!productRef.get(item.product_id)) return json({ error: "foodics_product_not_mapped", orderItemId: item.id }, 409);
+    for (const mod of itemModifiers ?? []) if (mod.modifier_id && !modifierRef.get(mod.modifier_id)) return json({ error: "foodics_modifier_not_mapped", modifierId: mod.modifier_id }, 409);
 
     const byItem = new Map<string, any[]>();
-    for (const mod of itemModifiers ?? []) {
-      const list = byItem.get(mod.order_item_id) ?? [];
-      list.push(mod);
-      byItem.set(mod.order_item_id, list);
-    }
+    for (const mod of itemModifiers ?? []) { const list = byItem.get(mod.order_item_id) ?? []; list.push(mod); byItem.set(mod.order_item_id, list); }
 
     const payload: Record<string, any> = {
       guests: 1,
       type: orderType(order.order_type),
-      source: 2,
       branch_id: mapping.external_branch_id,
       customer_notes: order.notes || undefined,
       due_at: order.scheduled_for || undefined,
@@ -114,19 +91,15 @@ Deno.serve(async (req: Request) => {
         unit_price: Number(item.unit_price),
         total_price: Number(item.line_total),
         kitchen_notes: item.notes || undefined,
-        meta: { talab_order_item_id: item.id },
+        meta: { external_additional_product_info: `TALAB:${item.id}` },
         options: (byItem.get(item.id) ?? []).map((mod: any) => ({
-          modifier_option_id: modifierRef.get(mod.modifier_id),
-          quantity: 1,
-          unit_price: Number(mod.price ?? 0),
-          total_price: Number(mod.price ?? 0),
+          modifier_option_id: modifierRef.get(mod.modifier_id), quantity: 1,
+          unit_price: Number(mod.price ?? 0), total_price: Number(mod.price ?? 0),
         })),
       })),
       subtotal_price: Number(order.subtotal),
       total_price: Number(order.total),
     };
-    if (customer?.name) payload.customer_name = customer.name;
-    if (customer?.phone) payload.customer_phone = customer.phone;
 
     const { data: latestAttempt } = await admin.from("order_dispatch_log").select("attempt").eq("order_id", order.id).eq("integration_id", foodics.integration_id).order("attempt", { ascending: false }).limit(1).maybeSingle();
     const attempt = Number(latestAttempt?.attempt ?? 0) + 1;
@@ -169,7 +142,6 @@ Deno.serve(async (req: Request) => {
       admin.from("orders").update({ pos_status: "sent", pos_ref: externalRef, pos_last_error: null, pos_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", order.id),
       admin.from("order_dispatch_log").update({ status: "succeeded", response: responseBody, error: null }).eq("id", logRow?.id),
     ]);
-
     return json({ ok: true, alreadySent: false, foodicsOrderRef: externalRef, attempt });
   } catch (error) {
     console.error("foodics-order-push", error);

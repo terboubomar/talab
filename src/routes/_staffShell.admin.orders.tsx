@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FilterX, RefreshCw, Search, Volume2, Wifi, WifiOff } from "lucide-react";
+import { ChevronLeft, Clock3, FilterX, RefreshCw, Search, Store, UserRound, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeliveryAssignmentPanel } from "@/components/admin/DeliveryAssignmentPanel";
 import { OrderDetailWorkspace } from "@/components/admin/OrderDetailWorkspace";
@@ -49,6 +49,15 @@ function nextAction(order: StaffOrder): { label: string; next: OrderStatus } | n
 
 function canCancel(order: StaffOrder) {
   return order.status !== "completed" && order.status !== "cancelled";
+}
+
+function statusTone(status: OrderStatus) {
+  if (status === "pending") return "border-amber-300/70 bg-amber-50 text-amber-700";
+  if (status === "accepted" || status === "preparing") return "border-blue-300/70 bg-blue-50 text-blue-700";
+  if (status === "ready") return "border-emerald-300/70 bg-emerald-50 text-emerald-700";
+  if (status === "out_for_delivery") return "border-violet-300/70 bg-violet-50 text-violet-700";
+  if (status === "completed") return "border-success/30 bg-success/10 text-success";
+  return "border-danger/30 bg-danger/10 text-danger";
 }
 
 function formatPlacedAt(value: string) {
@@ -245,45 +254,96 @@ function StaffOrdersPage() {
         </section>
 
         {actionError ? <div className="mb-4 rounded-card border border-border bg-secondary p-3 text-center text-sm font-bold">{actionError}</div> : null}
-        {isLoading ? <div className="grid gap-3">{[0,1,2].map((i)=><div key={i} className="card-surface h-36 animate-pulse opacity-60" />)}</div> : grouped.length === 0 ? (
+        {isLoading ? <div className="grid gap-3">{[0,1,2].map((i)=><div key={i} className="card-surface h-40 animate-pulse opacity-60" />)}</div> : grouped.length === 0 ? (
           <div className="py-16 text-center"><p className="text-sm font-bold">لا توجد طلبات مطابقة</p><p className="mt-1 text-xs text-muted-foreground">غيّر الفلاتر أو اختر تبويباً آخر.</p></div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid gap-4">
             {grouped.map((order) => {
               const action = nextAction(order);
               const isPending = pendingId === order.id;
               const isPosPending = posPendingId === order.id;
+              const customerName = order.customers?.name ?? "عميل";
+              const customerPhone = order.customers?.phone ?? "";
+              const itemCount = order.order_items.reduce((sum, item) => sum + Number(item.qty), 0);
               return (
-                <article key={order.id} role={canViewDetail ? "button" : undefined} tabIndex={canViewDetail ? 0 : undefined} onClick={() => { if (canViewDetail) setSelectedOrderId(order.id); }} onKeyDown={(event) => { if (canViewDetail && (event.key === "Enter" || event.key === " ")) setSelectedOrderId(order.id); }} className={`card-surface p-4 ${canViewDetail ? "cursor-pointer transition hover:border-brand/40 hover:shadow-sm" : ""}`}>
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                <article
+                  key={order.id}
+                  role={canViewDetail ? "button" : undefined}
+                  tabIndex={canViewDetail ? 0 : undefined}
+                  onClick={() => { if (canViewDetail) setSelectedOrderId(order.id); }}
+                  onKeyDown={(event) => { if (canViewDetail && (event.key === "Enter" || event.key === " ")) setSelectedOrderId(order.id); }}
+                  className={`group overflow-hidden rounded-2xl border border-border bg-background shadow-sm transition ${canViewDetail ? "cursor-pointer hover:-translate-y-0.5 hover:border-brand/35 hover:shadow-md" : ""}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/35 px-4 py-3 sm:px-5">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                      <span className={`rounded-pill border px-2.5 py-1 text-[11px] font-extrabold ${statusTone(order.status)}`}>{STATUS_LABEL[order.status]}</span>
+                      <span dir="ltr" className="text-sm font-black tracking-wide">#{order.id.slice(0, 8).toUpperCase()}</span>
+                      <span className="hidden h-4 w-px bg-border sm:block" />
+                      <span className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-foreground"><Store className="size-3.5 shrink-0 text-brand" /><span className="truncate">{order.branches?.name_ar ?? "الفرع غير محدد"}</span></span>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-muted-foreground"><Clock3 className="size-3.5" />{elapsed(order.placed_at)}</span>
+                  </div>
+
+                  <div className="grid gap-4 px-4 py-4 sm:px-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,.42fr)] lg:gap-6">
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-pill bg-secondary px-2.5 py-1 text-[11px] font-extrabold">{STATUS_LABEL[order.status]}</span>
-                        <span className="text-sm font-extrabold">#{order.id.slice(0,8)}</span>
-                        <span className="text-xs font-bold text-brand">{order.branches?.name_ar ?? "الفرع غير محدد"}</span>
-                        <span className="text-[11px] text-muted-foreground">{elapsed(order.placed_at)}</span>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-muted-foreground"><UserRound className="size-4" /></span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-extrabold text-foreground">{customerName}</p>
+                              {customerPhone ? <p dir="ltr" className="mt-0.5 text-left text-[11px] font-medium text-muted-foreground">{customerPhone}</p> : null}
+                            </div>
+                          </div>
+                        </div>
+                        {canViewDetail ? <span className="inline-flex items-center gap-1 text-[11px] font-bold text-muted-foreground transition group-hover:text-brand">عرض التفاصيل <ChevronLeft className="size-3.5" /></span> : null}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span>{order.customers?.name ?? "عميل"}</span><span dir="ltr">{order.customers?.phone}</span><span>{ORDER_TYPE_LABEL[order.order_type]}</span><span>{ORDER_SOURCE_LABEL[order.source] ?? order.source}</span><span>{order.payment_method === "cash" ? "عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}</span>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        <MetaChip>{ORDER_TYPE_LABEL[order.order_type]}</MetaChip>
+                        <MetaChip>{ORDER_SOURCE_LABEL[order.source] ?? order.source}</MetaChip>
+                        <MetaChip>{order.payment_method === "cash" ? "الدفع عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}</MetaChip>
+                        {order.source === "call_center" && order.created_by_staff?.name ? <MetaChip>الموظف: {order.created_by_staff.name}</MetaChip> : null}
                       </div>
-                      <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground"><span>{formatPlacedAt(order.placed_at)}</span>{order.scheduled_for ? <span>مجدول: {formatPlacedAt(order.scheduled_for)}</span> : null}{order.source === "call_center" && order.created_by_staff?.name ? <span>خدمة العملاء: {order.created_by_staff.name}</span> : null}{order.pos_ref ? <span dir="ltr">Foodics #{order.pos_ref}</span> : null}</div>
-                    </div>
-                    <span className="shrink-0 text-base font-extrabold text-brand">{formatSAR(Number(order.total))}</span>
-                  </div>
 
-                  <div className="mt-3 border-t border-border pt-3 text-sm">
-                    {order.order_items.slice(0,3).map((item)=><div key={item.id} className="flex justify-between gap-3 py-1"><span>{item.qty}× {item.name_ar}</span><span className="text-muted-foreground">{formatSAR(Number(item.line_total))}</span></div>)}
-                    {order.order_items.length > 3 ? <p className="mt-1 text-xs text-muted-foreground">+ {order.order_items.length - 3} أصناف أخرى</p> : null}
-                  </div>
-                  {order.pos_last_error ? <p className="mt-2 rounded-card bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">فشل إرسال POS</p> : null}
+                      <div className="mt-4 rounded-xl border border-border bg-secondary/25 px-3 py-2.5">
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px] font-bold text-muted-foreground">
+                          <span>الأصناف · {itemCount}</span>
+                          <span>{formatPlacedAt(order.placed_at)}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {order.order_items.slice(0, 3).map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-3 text-xs">
+                              <span className="min-w-0 truncate font-bold"><span className="me-1 text-brand">{item.qty}×</span>{item.name_ar}</span>
+                              <span className="shrink-0 text-muted-foreground">{formatSAR(Number(item.line_total))}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {order.order_items.length > 3 ? <p className="mt-2 text-[11px] font-bold text-brand">+ {order.order_items.length - 3} أصناف أخرى</p> : null}
+                      </div>
 
-                  <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                    {order.order_type === "delivery" && (order.status === "ready" || order.status === "out_for_delivery") ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="min-w-40 flex-1 rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50">{action.label}</button> : null}
-                      {canManageIntegrations && order.pos_status === "failed" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="rounded-pill border border-brand/40 px-4 py-2.5 text-sm font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : "إعادة الإرسال إلى فودكس"}</button> : null}
-                      {canCancel(order) ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, "cancelled")} className="rounded-pill border border-danger/40 px-4 py-2.5 text-sm font-bold text-danger disabled:opacity-50">إلغاء</button> : null}
+                      {order.scheduled_for ? <p className="mt-2 text-[11px] font-bold text-violet-700">مجدول: {formatPlacedAt(order.scheduled_for)}</p> : null}
+                      {order.pos_last_error ? <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">تعذّر إرسال الطلب إلى POS</p> : null}
                     </div>
+
+                    <aside className="flex flex-col justify-between rounded-xl border border-border bg-background p-3.5 lg:border-0 lg:border-r lg:rounded-none lg:ps-5">
+                      <div>
+                        <p className="text-[11px] font-bold text-muted-foreground">إجمالي الطلب</p>
+                        <p className="mt-1 text-xl font-black text-foreground">{formatSAR(Number(order.total))}</p>
+                        <p className="mt-1 text-[10px] text-muted-foreground">{order.payment_method === "cash" ? "تحصيل عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}</p>
+                      </div>
+
+                      <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} className="mt-4">
+                        {order.order_type === "delivery" && (order.status === "ready" || order.status === "out_for_delivery") ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
+                        <div className="mt-3 grid gap-2">
+                          {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-extrabold text-brand-ink shadow-sm transition hover:brightness-95 disabled:opacity-50">{isPending ? "جاري التحديث…" : action.label}</button> : <span className="rounded-xl bg-secondary px-4 py-3 text-center text-xs font-bold text-muted-foreground">لا يوجد إجراء مطلوب</span>}
+                          <div className="flex gap-2">
+                            {canManageIntegrations && order.pos_status === "failed" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="flex-1 rounded-lg border border-brand/30 px-3 py-2 text-[11px] font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : "إعادة POS"}</button> : null}
+                            {canCancel(order) ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, "cancelled")} className="flex-1 rounded-lg border border-border px-3 py-2 text-[11px] font-bold text-muted-foreground transition hover:border-danger/30 hover:text-danger disabled:opacity-50">إلغاء الطلب</button> : null}
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
                   </div>
                 </article>
               );
@@ -298,6 +358,10 @@ function StaffOrdersPage() {
       {selectedOrderId ? <OrderDetailWorkspace orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} /> : null}
     </main>
   );
+}
+
+function MetaChip({ children }: { children: React.ReactNode }) {
+  return <span className="rounded-pill border border-border bg-background px-2.5 py-1 text-[10px] font-bold text-muted-foreground">{children}</span>;
 }
 
 function OrderFilter({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {

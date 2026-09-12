@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ImageOff, Menu as MenuIcon, Search, ShoppingBag } from "lucide-react";
 
-import { ORDER_TYPE_LABEL, brandQuery, readSelection, type Selection } from "@/lib/storefront";
+import { ORDER_TYPE_LABEL, bannersQuery, brandQuery, readSelection, type Selection, type StorefrontBanner } from "@/lib/storefront";
 import {
   cartCount,
   cartTotal,
@@ -42,7 +42,7 @@ function MenuPage() {
   }, [navigate]);
 
   if (!selection) {
-    return <main className="min-h-screen bg-secondary px-5 py-10"><div className="mx-auto max-w-5xl h-72 animate-pulse rounded-card bg-background" /></main>;
+    return <main className="min-h-screen bg-secondary px-5 py-10"><div className="mx-auto h-72 max-w-5xl animate-pulse rounded-card bg-background" /></main>;
   }
 
   return <MenuContent selection={selection} />;
@@ -51,6 +51,7 @@ function MenuPage() {
 function MenuContent({ selection }: { selection: Selection }) {
   const navigate = useNavigate();
   const { data: brand } = useQuery(brandQuery);
+  const { data: banners = [] } = useQuery(bannersQuery);
   const { data, isLoading, isError, error } = useQuery(menuQuery(selection.branchId));
   const [cart, setCart] = useState<CartLine[]>(() => readCart());
   const [active, setActive] = useState<string | null>(null);
@@ -129,6 +130,8 @@ function MenuContent({ selection }: { selection: Selection }) {
         </div>
       </header>
 
+      {banners.length > 0 ? <StorefrontHero banners={banners} /> : null}
+
       <div className="mx-auto max-w-6xl px-4 pb-8">
         <nav className="sticky top-[49px] z-30 -mx-4 mb-5 flex gap-2 overflow-x-auto border-y border-border bg-[#f7f7f7]/95 px-4 py-3 no-scrollbar lg:hidden">
           {categories.map((category) => <button key={category.id} type="button" onClick={() => scrollTo(category.id)} className={`shrink-0 rounded-lg px-4 py-2 text-xs font-extrabold ${active === category.id ? "bg-foreground text-background" : "bg-background text-muted-foreground"}`}>{category.name_ar}</button>)}
@@ -152,6 +155,45 @@ function MenuContent({ selection }: { selection: Selection }) {
       {count > 0 ? <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background p-3 lg:hidden"><button type="button" onClick={() => navigate({ to: "/checkout" })} className="mx-auto flex w-full max-w-lg items-center justify-between rounded-card bg-brand px-5 py-3.5 text-sm font-extrabold text-brand-ink"><span>عرض السلة</span><span>{count} · {formatSAR(total)}</span></button></div> : null}
       {openProduct ? <ProductSheet product={openProduct} onClose={() => setOpenProduct(null)} onAdd={addToCart} /> : null}
     </main>
+  );
+}
+
+function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const timer = window.setInterval(() => setIndex((value) => (value + 1) % banners.length), 5000);
+    return () => window.clearInterval(timer);
+  }, [banners.length]);
+
+  useEffect(() => {
+    if (index >= banners.length) setIndex(0);
+  }, [banners.length, index]);
+
+  const banner = banners[index];
+  if (!banner) return null;
+
+  const visual = (
+    <picture className="block w-full">
+      {banner.mobile_image_url ? <source media="(max-width: 639px)" srcSet={banner.mobile_image_url} /> : null}
+      <img src={banner.image_url} alt={banner.title_ar ?? banner.title_en ?? "عرض"} className="aspect-[16/6] w-full object-cover sm:aspect-[16/5]" />
+    </picture>
+  );
+
+  return (
+    <section className="mx-auto mb-5 max-w-6xl overflow-hidden bg-background sm:px-4">
+      <div className="relative overflow-hidden sm:rounded-card">
+        {banner.link_url ? <a href={banner.link_url} className="block" target={banner.link_url.startsWith("http") ? "_blank" : undefined} rel={banner.link_url.startsWith("http") ? "noreferrer" : undefined}>{visual}</a> : visual}
+        {banners.length > 1 ? (
+          <div className="absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+            {banners.map((item, dotIndex) => (
+              <button key={item.id} type="button" onClick={() => setIndex(dotIndex)} aria-label={`عرض ${dotIndex + 1}`} className={`h-1.5 rounded-full shadow-sm transition-all ${dotIndex === index ? "w-7 bg-white" : "w-1.5 bg-white/60"}`} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </section>
   );
 }
 

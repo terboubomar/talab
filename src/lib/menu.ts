@@ -94,21 +94,34 @@ export type Category = {
   products: Product[] | null;
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function branchFromUrl() {
+  if (typeof window === "undefined") return null;
+  const value = new URL(window.location.href).searchParams.get("branch");
+  return value && UUID_RE.test(value) ? value : null;
+}
+
+function resolvedBranchId(branchId: string | null) {
+  return branchId ?? branchFromUrl();
+}
+
 /**
- * When branchId is null the public storefront returns a browse-only preview
- * from the tenant's first active menu branch. Actual ordering always reloads
- * storefront_menu(branchId), which applies real branch pricing/availability.
+ * When no order context is selected, ?branch=<uuid> provides a browse-only
+ * branch context for admin-generated e-menu links. Actual ordering still
+ * requires a real branch + order-type selection before anything enters cart.
  */
 export function menuQuery(branchId: string | null) {
+  const resolved = resolvedBranchId(branchId);
   return queryOptions({
-    queryKey: branchId
-      ? ["storefront_menu", branchId]
+    queryKey: resolved
+      ? ["storefront_menu", resolved]
       : ["storefront_menu_preview", TENANT_SLUG],
     queryFn: async (): Promise<Category[]> => {
       if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
-      if (branchId) {
+      if (resolved) {
         const { data, error } = await supabase.rpc("storefront_menu", {
-          p_branch_id: branchId,
+          p_branch_id: resolved,
         });
         if (error) throw error;
         return (data ?? []) as Category[];
@@ -124,14 +137,15 @@ export function menuQuery(branchId: string | null) {
 }
 
 export function productDetailQuery(productId: string, branchId: string | null) {
+  const resolved = resolvedBranchId(branchId);
   return queryOptions({
-    queryKey: ["storefront_product_detail", TENANT_SLUG, branchId ?? "preview", productId],
+    queryKey: ["storefront_product_detail", TENANT_SLUG, resolved ?? "preview", productId],
     queryFn: async (): Promise<ProductDetail | null> => {
       if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
       const { data, error } = await supabase.rpc("storefront_product_detail", {
         p_tenant_slug: TENANT_SLUG,
         p_product_id: productId,
-        p_branch_id: branchId,
+        p_branch_id: resolved,
       });
       if (error) throw error;
       if (!data) return null;
@@ -149,14 +163,15 @@ export function productDetailQuery(productId: string, branchId: string | null) {
 }
 
 export function productCrossSellsQuery(productId: string, branchId: string | null) {
+  const resolved = resolvedBranchId(branchId);
   return queryOptions({
-    queryKey: ["storefront_product_cross_sells", TENANT_SLUG, branchId ?? "preview", productId],
+    queryKey: ["storefront_product_cross_sells", TENANT_SLUG, resolved ?? "preview", productId],
     queryFn: async (): Promise<ProductCrossSell[]> => {
       if (!supabase) return [];
       const { data, error } = await supabase.rpc("storefront_product_cross_sells", {
         p_tenant_slug: TENANT_SLUG,
         p_product_id: productId,
-        p_branch_id: branchId,
+        p_branch_id: resolved,
       });
       if (error) throw error;
       return Array.isArray(data) ? (data as ProductCrossSell[]) : [];

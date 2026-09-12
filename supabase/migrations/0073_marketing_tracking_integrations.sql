@@ -9,7 +9,7 @@ values
     'meta-pixel',
     'Meta Pixel',
     'Meta Pixel',
-    null,
+    'https://cdn.simpleicons.org/meta/0866FF',
     jsonb_build_object(
       'credential_mode', 'settings',
       'field_key', 'pixel_id',
@@ -24,7 +24,7 @@ values
     'tiktok-pixel',
     'TikTok Pixel',
     'TikTok Pixel',
-    null,
+    'https://cdn.simpleicons.org/tiktok/000000',
     jsonb_build_object(
       'credential_mode', 'settings',
       'field_key', 'pixel_id',
@@ -39,7 +39,7 @@ values
     'snapchat-pixel',
     'Snapchat Pixel',
     'Snapchat Pixel',
-    null,
+    'https://cdn.simpleicons.org/snapchat/FFFC00',
     jsonb_build_object(
       'credential_mode', 'settings',
       'field_key', 'pixel_id',
@@ -54,7 +54,7 @@ values
     'google-tag-manager',
     'Google Tag Manager',
     'Google Tag Manager',
-    null,
+    'https://cdn.simpleicons.org/googletagmanager/246FDB',
     jsonb_build_object(
       'credential_mode', 'settings',
       'field_key', 'container_id',
@@ -69,7 +69,7 @@ values
     'google-analytics',
     'Google Analytics',
     'Google Analytics',
-    null,
+    'https://cdn.simpleicons.org/googleanalytics/E37400',
     jsonb_build_object(
       'credential_mode', 'settings',
       'field_key', 'measurement_id',

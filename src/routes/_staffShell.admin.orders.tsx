@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FilterX, RefreshCw, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeliveryAssignmentPanel } from "@/components/admin/DeliveryAssignmentPanel";
+import { OrderDetailWorkspace } from "@/components/admin/OrderDetailWorkspace";
 import { pushOrderToFoodics } from "@/lib/integrations";
 import { formatSAR } from "@/lib/menu";
 import { PAYMENT_STATUS_LABEL } from "@/lib/payments";
@@ -69,6 +70,7 @@ function StaffOrdersPage() {
   const [orderType, setOrderType] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [source, setSource] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [posPendingId, setPosPendingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -77,6 +79,7 @@ function StaffOrdersPage() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const canManageIntegrations = can("integrations.manage");
+  const canViewDetail = can("orders.detail.view");
   const audioContextRef = useRef<AudioContext | null>(null);
   const soundEnabledRef = useRef(false);
   const activeTab = TABS.find((t) => t.key === tab) ?? DEFAULT_TAB;
@@ -157,6 +160,7 @@ function StaffOrdersPage() {
       { event: "*", schema: "public", table: "orders" },
       (payload) => {
         void queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
+        if (selectedOrderId) void queryClient.invalidateQueries({ queryKey: ["staff_order_detail", selectedOrderId] });
         const next = (payload.new ?? {}) as { payment_method?: string; payment_status?: string };
         const previous = (payload.old ?? {}) as { payment_method?: string; payment_status?: string };
         if (payload.eventType === "INSERT" && next.payment_method !== "online") {
@@ -176,7 +180,7 @@ function StaffOrdersPage() {
       setRealtimeConnected(false);
       void client.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, selectedOrderId]);
 
   useEffect(() => () => {
     const audioContext = audioContextRef.current;
@@ -288,7 +292,14 @@ function StaffOrdersPage() {
               const isPosPending = posPendingId === order.id;
               const sourceLabel = ORDER_SOURCE_LABEL[order.source] ?? order.source;
               return (
-                <article key={order.id} className={`card-surface p-4 ${order.source === "call_center" ? "border-brand/30" : ""}`}>
+                <article
+                  key={order.id}
+                  role={canViewDetail ? "button" : undefined}
+                  tabIndex={canViewDetail ? 0 : undefined}
+                  onClick={() => { if (canViewDetail) setSelectedOrderId(order.id); }}
+                  onKeyDown={(event) => { if (canViewDetail && (event.key === "Enter" || event.key === " ")) setSelectedOrderId(order.id); }}
+                  className={`card-surface p-4 ${order.source === "call_center" ? "border-brand/30" : ""} ${canViewDetail ? "cursor-pointer transition hover:border-brand/40 hover:shadow-sm" : ""}`}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -325,12 +336,13 @@ function StaffOrdersPage() {
                   {order.pos_last_error ? <p className="mt-2 rounded-card bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">فشل POS: {order.pos_last_error}</p> : null}
                   {order.pos_ref ? <p className="mt-2 text-[11px] text-muted-foreground" dir="ltr">Foodics ref: {order.pos_ref}</p> : null}
 
-                  {order.order_type === "delivery" ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="min-w-40 flex-1 rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50">{action.label}</button> : null}
-                    {canManageIntegrations && order.pos_status !== "sent" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="rounded-pill border border-brand/40 px-4 py-2.5 text-sm font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : order.pos_status === "failed" ? "إعادة الإرسال إلى فودكس" : "إرسال إلى فودكس"}</button> : null}
-                    {canCancel(order) ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, "cancelled")} className="rounded-pill border border-danger/40 px-4 py-2.5 text-sm font-bold text-danger disabled:opacity-50">إلغاء</button> : null}
+                  <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                    {order.order_type === "delivery" ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="min-w-40 flex-1 rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50">{action.label}</button> : null}
+                      {canManageIntegrations && order.pos_status !== "sent" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="rounded-pill border border-brand/40 px-4 py-2.5 text-sm font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : order.pos_status === "failed" ? "إعادة الإرسال إلى فودكس" : "إرسال إلى فودكس"}</button> : null}
+                      {canCancel(order) ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, "cancelled")} className="rounded-pill border border-danger/40 px-4 py-2.5 text-sm font-bold text-danger disabled:opacity-50">إلغاء</button> : null}
+                    </div>
                   </div>
                 </article>
               );
@@ -340,6 +352,8 @@ function StaffOrdersPage() {
 
         <button type="button" onClick={() => queryClient.invalidateQueries({ queryKey: ["staff_orders"] })} className="mx-auto mt-6 flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><RefreshCw aria-hidden className="size-3.5" />تحديث الآن</button>
       </div>
+
+      {selectedOrderId ? <OrderDetailWorkspace orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} /> : null}
     </main>
   );
 }

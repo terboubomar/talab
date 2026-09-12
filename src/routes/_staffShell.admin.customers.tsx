@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchCustomerCrmList } from "@/lib/crm";
@@ -8,8 +8,16 @@ import { usePermissions } from "@/lib/permissions";
 
 export const Route = createFileRoute("/_staffShell/admin/customers")({
   head: () => ({ meta: [{ title: "العملاء — طلب" }] }),
-  component: CustomersPage,
+  component: CustomersRouteBoundary,
 });
+
+function CustomersRouteBoundary() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (pathname !== "/admin/customers" && pathname !== "/admin/customers/") {
+    return <Outlet />;
+  }
+  return <CustomersPage />;
+}
 
 function formatDate(value: string | null) {
   if (!value) return "—";

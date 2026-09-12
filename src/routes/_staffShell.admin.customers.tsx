@@ -49,6 +49,8 @@ function CustomersPage() {
   const canView = can("customers.view");
   const canAdjust = can("customers.wallet.adjust");
   const canSeeLedger = canAdjust || can("customers.activity.view");
+  const canAdjustPoints = can("customers.points.adjust");
+  const canSeePointsHistory = canAdjustPoints || can("customers.activity.view");
 
   const {
     data: customers = [],
@@ -190,9 +192,12 @@ function CustomersPage() {
 
             {selected ? (
               <CustomerDetail
+                key={selected.id}
                 customer={selected}
                 canAdjust={canAdjust}
                 canSeeLedger={canSeeLedger}
+                canAdjustPoints={canAdjustPoints}
+                canSeePointsHistory={canSeePointsHistory}
                 onAdjusted={() => {
                   void queryClient.invalidateQueries({ queryKey: ["admin_customers_wallet"] });
                   void queryClient.invalidateQueries({ queryKey: ["wallet_ledger", selected.id] });

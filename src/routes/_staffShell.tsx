@@ -9,16 +9,13 @@ export const Route = createFileRoute("/_staffShell")({
   component: StaffShell,
 });
 
-const NAV_ITEMS: { label: string; to: string; perm: string; enabled: boolean }[] = [
+const NAV_ITEMS: { label: string; to: string; perm?: string; anyPerm?: string[]; enabled: boolean }[] = [
   { label: "لوحة التحكم", to: "/admin", perm: "dashboard.stats", enabled: false },
   { label: "الطلبات", to: "/admin/orders", perm: "orders.page.view", enabled: true },
   { label: "التقارير", to: "/admin/reports", perm: "dashboard.reports", enabled: true },
   { label: "الاستردادات", to: "/admin/refunds", perm: "orders.refund", enabled: true },
   { label: "المنتجات", to: "/admin/products", perm: "menus.view", enabled: true },
-  { label: "الكوبونات", to: "/admin/coupons", perm: "coupons.view", enabled: true },
-  { label: "نقاط الولاء", to: "/admin/loyalty", perm: "marketing.loyalty", enabled: true },
-  { label: "الفروع", to: "/admin/branches", perm: "branches.view", enabled: false },
-  { label: "أدوات التسويق", to: "/admin/marketing", perm: "marketing.tools", enabled: false },
+  { label: "أدوات التسويق", to: "/admin/marketing-tools", anyPerm: ["marketing.tools", "coupons.view", "marketing.loyalty"], enabled: true },
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: true },
   { label: "الموظفين", to: "/admin/staff", perm: "staff.view", enabled: true },
   { label: "المدفوعات", to: "/admin/payments", perm: "payments.view", enabled: true },

@@ -21,6 +21,7 @@ import { Route as StaffShellAdminIndexRouteImport } from './routes/_staffShell.a
 import { Route as StaffShellAdminCouponsRouteImport } from './routes/_staffShell.admin.coupons'
 import { Route as StaffShellAdminCustomersRouteImport } from './routes/_staffShell.admin.customers'
 import { Route as StaffShellAdminLoyaltyRouteImport } from './routes/_staffShell.admin.loyalty'
+import { Route as StaffShellAdminMarketingToolsRouteImport } from './routes/_staffShell.admin.marketing-tools'
 import { Route as StaffShellAdminOrdersRouteImport } from './routes/_staffShell.admin.orders'
 import { Route as StaffShellAdminPaymentsRouteImport } from './routes/_staffShell.admin.payments'
 import { Route as StaffShellAdminProductsRouteImport } from './routes/_staffShell.admin.products'
@@ -88,6 +89,12 @@ const StaffShellAdminLoyaltyRoute = StaffShellAdminLoyaltyRouteImport.update({
   path: '/admin/loyalty',
   getParentRoute: () => StaffShellRoute,
 } as any)
+const StaffShellAdminMarketingToolsRoute =
+  StaffShellAdminMarketingToolsRouteImport.update({
+    id: '/admin/marketing-tools',
+    path: '/admin/marketing-tools',
+    getParentRoute: () => StaffShellRoute,
+  } as any)
 const StaffShellAdminOrdersRoute = StaffShellAdminOrdersRouteImport.update({
   id: '/admin/orders',
   path: '/admin/orders',
@@ -130,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
+  '/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
   '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
@@ -149,6 +157,7 @@ export interface FileRoutesByTo {
   '/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/admin/customers': typeof StaffShellAdminCustomersRoute
   '/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
+  '/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
   '/admin/orders': typeof StaffShellAdminOrdersRoute
   '/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/admin/products': typeof StaffShellAdminProductsRoute
@@ -170,6 +179,7 @@ export interface FileRoutesById {
   '/_staffShell/admin/coupons': typeof StaffShellAdminCouponsRoute
   '/_staffShell/admin/customers': typeof StaffShellAdminCustomersRoute
   '/_staffShell/admin/loyalty': typeof StaffShellAdminLoyaltyRoute
+  '/_staffShell/admin/marketing-tools': typeof StaffShellAdminMarketingToolsRoute
   '/_staffShell/admin/orders': typeof StaffShellAdminOrdersRoute
   '/_staffShell/admin/payments': typeof StaffShellAdminPaymentsRoute
   '/_staffShell/admin/products': typeof StaffShellAdminProductsRoute
@@ -191,6 +201,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/loyalty'
+    | '/admin/marketing-tools'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/admin/coupons'
     | '/admin/customers'
     | '/admin/loyalty'
+    | '/admin/marketing-tools'
     | '/admin/orders'
     | '/admin/payments'
     | '/admin/products'
@@ -230,6 +242,7 @@ export interface FileRouteTypes {
     | '/_staffShell/admin/coupons'
     | '/_staffShell/admin/customers'
     | '/_staffShell/admin/loyalty'
+    | '/_staffShell/admin/marketing-tools'
     | '/_staffShell/admin/orders'
     | '/_staffShell/admin/payments'
     | '/_staffShell/admin/products'
@@ -336,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StaffShellAdminLoyaltyRouteImport
       parentRoute: typeof StaffShellRoute
     }
+    '/_staffShell/admin/marketing-tools': {
+      id: '/_staffShell/admin/marketing-tools'
+      path: '/admin/marketing-tools'
+      fullPath: '/admin/marketing-tools'
+      preLoaderRoute: typeof StaffShellAdminMarketingToolsRouteImport
+      parentRoute: typeof StaffShellRoute
+    }
     '/_staffShell/admin/orders': {
       id: '/_staffShell/admin/orders'
       path: '/admin/orders'
@@ -385,6 +405,7 @@ interface StaffShellRouteChildren {
   StaffShellAdminCouponsRoute: typeof StaffShellAdminCouponsRoute
   StaffShellAdminCustomersRoute: typeof StaffShellAdminCustomersRoute
   StaffShellAdminLoyaltyRoute: typeof StaffShellAdminLoyaltyRoute
+  StaffShellAdminMarketingToolsRoute: typeof StaffShellAdminMarketingToolsRoute
   StaffShellAdminOrdersRoute: typeof StaffShellAdminOrdersRoute
   StaffShellAdminPaymentsRoute: typeof StaffShellAdminPaymentsRoute
   StaffShellAdminProductsRoute: typeof StaffShellAdminProductsRoute
@@ -398,6 +419,7 @@ const StaffShellRouteChildren: StaffShellRouteChildren = {
   StaffShellAdminCouponsRoute: StaffShellAdminCouponsRoute,
   StaffShellAdminCustomersRoute: StaffShellAdminCustomersRoute,
   StaffShellAdminLoyaltyRoute: StaffShellAdminLoyaltyRoute,
+  StaffShellAdminMarketingToolsRoute: StaffShellAdminMarketingToolsRoute,
   StaffShellAdminOrdersRoute: StaffShellAdminOrdersRoute,
   StaffShellAdminPaymentsRoute: StaffShellAdminPaymentsRoute,
   StaffShellAdminProductsRoute: StaffShellAdminProductsRoute,

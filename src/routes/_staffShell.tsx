@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_staffShell")({
 });
 
 const NAV_ITEMS: { label: string; to: string; perm?: string; anyPerm?: string[]; enabled: boolean }[] = [
-  { label: "لوحة التحكم", to: "/admin", perm: "dashboard.stats", enabled: false },
+  { label: "لوحة التحكم", to: "/admin", perm: "dashboard.stats", enabled: true },
   { label: "الطلبات", to: "/admin/orders", perm: "orders.page.view", enabled: true },
   { label: "التقارير", to: "/admin/reports", perm: "dashboard.reports", enabled: true },
   { label: "المنتجات", to: "/admin/products", perm: "menus.view", enabled: true },

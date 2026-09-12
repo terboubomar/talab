@@ -173,7 +173,7 @@ export function StorefrontOrderContextModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="order-context-title"
-        className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-card bg-surface-raised shadow-2 sm:max-h-[86vh] sm:rounded-card"
+        className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-card bg-surface-raised shadow-card sm:max-h-[86vh] sm:rounded-card"
       >
         <header className="border-b border-line px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -279,7 +279,7 @@ export function StorefrontOrderContextModal({
                                 disabled
                                   ? "cursor-not-allowed border-line bg-surface-sunk opacity-65"
                                   : isCurrent
-                                    ? "border-brand bg-accent-soft"
+                                    ? "border-brand bg-brand-soft"
                                     : "border-line bg-surface hover:border-brand/40"
                               }`}
                             >
@@ -295,7 +295,7 @@ export function StorefrontOrderContextModal({
                                   </div>
                                   {branch.name_en ? <p className="mt-0.5 truncate text-xs text-ink-3" dir="ltr">{branch.name_en}</p> : null}
                                 </div>
-                                <span className={`shrink-0 rounded-pill px-2 py-1 text-[10px] font-semibold ${isBusy ? "bg-warn/10 text-warn" : "bg-ok/10 text-ok"}`}>
+                                <span className={`shrink-0 rounded-pill px-2 py-1 text-[10px] font-semibold ${isBusy ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
                                   {isBusy ? "مشغول حالياً" : "متاح"}
                                 </span>
                               </div>
@@ -351,7 +351,7 @@ export function StorefrontOrderContextModal({
                     type="button"
                     data-order-type="true"
                     onClick={() => onChoose(selectedBranch, type)}
-                    className="group flex min-h-[104px] items-center gap-4 rounded-card border border-line bg-surface p-4 text-start transition-colors hover:border-brand/50 hover:bg-accent-soft"
+                    className="group flex min-h-[104px] items-center gap-4 rounded-card border border-line bg-surface p-4 text-start transition-colors hover:border-brand/50 hover:bg-brand-soft"
                   >
                     <span className="grid size-12 shrink-0 place-items-center rounded-card bg-surface-sunk text-brand transition-colors group-hover:bg-surface">
                       <Icon className="size-5" aria-hidden />

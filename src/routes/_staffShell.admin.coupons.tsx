@@ -192,6 +192,11 @@ function CouponsPage() {
       <header className="border-b border-border bg-background px-5 py-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
+            <div className="mb-1 text-xs text-muted-foreground">
+              <Link to="/admin/marketing-tools" className="hover:text-foreground hover:underline">أدوات التسويق</Link>
+              <span className="mx-1">›</span>
+              <span className="font-bold text-foreground">كوبونات الخصومات</span>
+            </div>
             <h1 className="text-lg font-extrabold">كوبونات الخصم</h1>
             <p className="mt-1 text-xs text-muted-foreground">قواعد الخصم والحجوزات المؤقتة تُحسب وتُفرض على الخادم.</p>
           </div>

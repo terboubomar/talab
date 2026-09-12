@@ -1,4 +1,5 @@
-.cc-input {
+.cc-input,
+.report-input {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
@@ -10,7 +11,8 @@
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
-.cc-input:focus {
+.cc-input:focus,
+.report-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 13%, transparent);
 }

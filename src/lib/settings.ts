@@ -114,14 +114,14 @@ export type PaymentSettings = {
   online_payment_logo_path: string | null;
 };
 
-export async function fetchSettings<T extends Record<string, unknown>>(groupKey: SettingsGroupKey): Promise<T> {
+export async function fetchSettings<T extends object>(groupKey: SettingsGroupKey): Promise<T> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_settings_read", { p_group_key: groupKey });
   if (error) throw error;
   return (data ?? {}) as T;
 }
 
-export async function saveSettings<T extends Record<string, unknown>>(
+export async function saveSettings<T extends object>(
   groupKey: SettingsGroupKey,
   value: T,
 ): Promise<T> {

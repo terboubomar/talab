@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ImageOff, Menu as MenuIcon, Search, ShoppingBag, X } from "lucide-react";
+import { ImageOff, MapPin, ShoppingBag, X } from "lucide-react";
 
 import {
   ORDER_TYPE_LABEL,
   bannersQuery,
+  branchesQuery,
   brandQuery,
   readSelection,
+  saveSelection,
+  type Branch,
+  type OrderType,
   type Selection,
   type StorefrontBanner,
 } from "@/lib/storefront";
@@ -38,39 +42,21 @@ export const Route = createFileRoute("/menu")({
 function MenuPage() {
   const navigate = useNavigate();
   const [selection, setSelection] = useState<Selection | null>(null);
-
-  useEffect(() => {
-    const saved = readSelection();
-    if (!saved?.branchId) {
-      navigate({ to: "/", replace: true });
-      return;
-    }
-    setSelection(saved);
-  }, [navigate]);
-
-  if (!selection) {
-    return (
-      <main className="min-h-screen bg-[#fdfdfd] px-5 py-10">
-        <div className="mx-auto h-72 max-w-5xl animate-pulse rounded-[10px] bg-white" />
-      </main>
-    );
-  }
-
-  return <MenuContent selection={selection} />;
-}
-
-function MenuContent({ selection }: { selection: Selection }) {
-  const navigate = useNavigate();
-  const { data: brand } = useQuery(brandQuery);
-  const { data: banners = [] } = useQuery(bannersQuery);
-  const { data, isLoading, isError, error } = useQuery(menuQuery(selection.branchId));
   const [cart, setCart] = useState<CartLine[]>(() => readCart());
   const [active, setActive] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<Product | null>(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [pendingProductId, setPendingProductId] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  const { data: brand } = useQuery(brandQuery);
+  const { data: banners = [] } = useQuery(bannersQuery);
+  const { data: branches = [], isLoading: branchesLoading } = useQuery(branchesQuery);
+  const { data, isLoading, isError, error } = useQuery(menuQuery(selection?.branchId ?? null));
+
+  useEffect(() => {
+    setSelection(readSelection());
+  }, []);
 
   useEffect(() => saveCart(cart), [cart]);
   useEffect(() => applyBrandTheme(brand?.theme), [brand?.theme]);
@@ -79,19 +65,6 @@ function MenuContent({ selection }: { selection: Selection }) {
     () => [...(data ?? [])].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)),
     [data],
   );
-
-  const filteredCategories = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return categories;
-    return categories
-      .map((category) => ({
-        ...category,
-        products: (category.products ?? []).filter((product) =>
-          `${product.name_ar} ${product.name_en ?? ""} ${product.desc_ar ?? ""}`.toLowerCase().includes(q),
-        ),
-      }))
-      .filter((category) => (category.products ?? []).length > 0);
-  }, [categories, search]);
 
   useEffect(() => {
     const first = categories[0];
@@ -107,7 +80,7 @@ function MenuContent({ selection }: { selection: Selection }) {
           setActive(visible.target.dataset["categoryId"]);
         }
       },
-      { rootMargin: "-150px 0px -65% 0px", threshold: 0 },
+      { rootMargin: "-88px 0px -65% 0px", threshold: 0 },
     );
 
     categories.forEach((category) => {
@@ -117,9 +90,27 @@ function MenuContent({ selection }: { selection: Selection }) {
     return () => observer.disconnect();
   }, [categories]);
 
+  useEffect(() => {
+    if (!selection || !pendingProductId || !data) return;
+    const product = (data as Category[])
+      .flatMap((category) => category.products ?? [])
+      .find((item) => item.id === pendingProductId);
+    setPendingProductId(null);
+    if (product && product.in_stock !== false) setOpenProduct(product);
+  }, [data, pendingProductId, selection]);
+
   function scrollTo(id: string) {
     setActive(id);
     sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function requestProduct(product: Product) {
+    if (!selection?.branchId) {
+      setPendingProductId(product.id);
+      setSelectorOpen(true);
+      return;
+    }
+    setOpenProduct(product);
   }
 
   function addToCart(line: CartLine) {
@@ -135,84 +126,86 @@ function MenuContent({ selection }: { selection: Selection }) {
     setOpenProduct(null);
   }
 
+  function chooseOrderContext(branch: Branch, orderType: OrderType) {
+    const branchId = String(branch.branch_id ?? branch.id ?? "");
+    if (!branchId) return;
+
+    if (selection?.branchId && selection.branchId !== branchId && cart.length > 0) {
+      setCart([]);
+    }
+
+    const next: Selection = {
+      branchId,
+      branchNameAr: branch.name_ar,
+      orderType,
+    };
+    saveSelection(next);
+    setSelection(next);
+    setSelectorOpen(false);
+
+    if (orderType === "delivery") {
+      setPendingProductId(null);
+      navigate({ to: "/delivery-address" });
+    }
+  }
+
+  function checkout() {
+    if (!selection?.branchId) {
+      setPendingProductId(null);
+      setSelectorOpen(true);
+      return;
+    }
+    navigate({ to: "/checkout" });
+  }
+
   const count = cartCount(cart);
   const total = cartTotal(cart);
 
   return (
-    <main className="min-h-screen bg-[#fdfdfd] pb-20 text-black lg:pb-0" dir="rtl">
-      <TopBar
-        selection={selection}
-        count={count}
-        onMenu={() => setDrawerOpen(true)}
-        onOrderType={() => navigate({ to: "/" })}
-        onCart={() => navigate({ to: "/checkout" })}
-      />
-
-      <SideDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onBranches={() => navigate({ to: "/" })} />
-
-      <SearchOverlay open={searchOpen} value={search} onChange={setSearch} onClose={() => setSearchOpen(false)} />
-
-      <header className="bg-white pt-4 sm:pt-5">
-        <div className="mx-auto flex max-w-[1140px] items-center justify-center px-4 pb-4">
-          {brand?.logo_url ? (
-            <img
-              src={brand.logo_url}
-              alt={brand.name_ar ?? "شعار المطعم"}
-              className="max-h-24 w-auto max-w-[190px] object-contain sm:max-h-28 sm:max-w-[230px]"
-            />
-          ) : (
-            <h1 className="py-3 text-3xl font-black">{brand?.name_ar ?? "طلب"}</h1>
-          )}
-        </div>
-      </header>
-
+    <main className="min-h-screen bg-[#fdfdfd] pb-20 text-black lg:pb-6" dir="rtl">
       {banners.length > 0 ? <StorefrontHero banners={banners} /> : null}
 
-      <section className="mb-4">
-        <div className="mx-auto max-w-[1140px] px-3 sm:px-4">
-          <div className="mb-3 flex justify-end lg:hidden">
-            <button
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              className="inline-flex items-center gap-2 rounded-[5px] border border-[#ededed] bg-white px-3 py-2 text-xs font-bold"
-            >
-              <Search className="size-4" /> بحث عن ...
-            </button>
-          </div>
+      {selection ? (
+        <div className="mx-auto mb-3 max-w-[1320px] px-3 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setSelectorOpen(true)}
+            className="inline-flex items-center gap-2 rounded-[8px] border border-[#ededed] bg-white px-3 py-2 text-xs font-medium text-[#474b46]"
+          >
+            <MapPin className="size-3.5" />
+            <span>{ORDER_TYPE_LABEL[selection.orderType]} · {selection.branchNameAr}</span>
+            <span className="text-[#878787]">تغيير</span>
+          </button>
+        </div>
+      ) : null}
 
+      <section className="menuPage mb-3 flex-grow">
+        <div className="mx-auto max-w-[1320px] px-3 sm:px-4">
           <MobileCategories categories={categories} active={active} onSelect={scrollTo} />
 
-          <div className="grid gap-4 lg:grid-cols-[minmax(190px,1fr)_minmax(0,2fr)_270px] lg:items-start xl:grid-cols-[260px_minmax(0,560px)_280px] xl:justify-center">
-            <DesktopCategories categories={categories} active={active} onSelect={scrollTo} />
+          <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+            <div className="hidden lg:col-span-3 lg:block">
+              <DesktopCategories categories={categories} active={active} onSelect={scrollTo} />
+            </div>
 
-            <section className="min-w-0">
-              <div className="mb-3 hidden justify-end lg:flex">
-                <button
-                  type="button"
-                  onClick={() => setSearchOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-[5px] border border-[#ededed] bg-white px-3 py-2 text-xs font-bold"
-                >
-                  <Search className="size-4" /> بحث عن ...
-                </button>
-              </div>
-
+            <section className="min-w-0 lg:col-span-6">
               {isLoading ? (
                 <div className="space-y-3">
                   {[0, 1, 2, 3].map((item) => (
-                    <div key={item} className="h-32 animate-pulse rounded-[10px] border border-[#ededed] bg-white" />
+                    <div key={item} className="h-[136px] animate-pulse rounded-[10px] border border-[#ededed] bg-white" />
                   ))}
                 </div>
               ) : isError ? (
                 <Notice title="تعذّر تحميل القائمة" body={error instanceof Error ? error.message : "حاول مرة أخرى"} />
-              ) : filteredCategories.length === 0 ? (
-                <Notice title="لا توجد نتائج" body="جرّب كلمة بحث أخرى." />
+              ) : categories.length === 0 ? (
+                <Notice title="القائمة غير متاحة حالياً" body="حاول مرة أخرى بعد قليل." />
               ) : (
                 <div className="space-y-10">
-                  {filteredCategories.map((category) => (
+                  {categories.map((category) => (
                     <CategorySection
                       key={category.id}
                       category={category}
-                      onOpen={setOpenProduct}
+                      onOpen={requestProduct}
                       registerRef={(node) => {
                         sectionRefs.current[category.id] = node;
                       }}
@@ -222,20 +215,22 @@ function MenuContent({ selection }: { selection: Selection }) {
               )}
             </section>
 
-            <aside className="sticky top-[74px] hidden lg:block">
-              <DesktopCart cart={cart} total={total} count={count} onCheckout={() => navigate({ to: "/checkout" })} />
+            <aside className="hidden lg:col-span-3 lg:block">
+              {cart.length > 0 ? (
+                <div className="sticky top-5">
+                  <DesktopCart cart={cart} total={total} count={count} onCheckout={checkout} />
+                </div>
+              ) : null}
             </aside>
           </div>
         </div>
       </section>
 
-      <StorefrontFooter brandName={brand?.name_ar ?? "طلب"} theme={brand?.theme} />
-
       {count > 0 ? (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ededed] bg-white p-3 lg:hidden">
           <button
             type="button"
-            onClick={() => navigate({ to: "/checkout" })}
+            onClick={checkout}
             className="mx-auto flex w-full max-w-lg items-center justify-between rounded-[10px] bg-brand px-5 py-3.5 text-sm font-extrabold text-brand-ink"
           >
             <span>عرض السلة</span>
@@ -247,109 +242,18 @@ function MenuContent({ selection }: { selection: Selection }) {
       {openProduct ? (
         <ProductSheet product={openProduct} onClose={() => setOpenProduct(null)} onAdd={addToCart} />
       ) : null}
+
+      <OrderContextModal
+        open={selectorOpen}
+        branches={branches}
+        loading={branchesLoading}
+        onClose={() => {
+          setSelectorOpen(false);
+          setPendingProductId(null);
+        }}
+        onChoose={chooseOrderContext}
+      />
     </main>
-  );
-}
-
-function TopBar({
-  selection,
-  count,
-  onMenu,
-  onOrderType,
-  onCart,
-}: {
-  selection: Selection;
-  count: number;
-  onMenu: () => void;
-  onOrderType: () => void;
-  onCart: () => void;
-}) {
-  return (
-    <div className="sticky top-0 z-50 bg-brand px-2 py-2 shadow-sm">
-      <nav className="mx-auto flex h-12 max-w-[1140px] items-stretch gap-2">
-        <button
-          type="button"
-          onClick={onMenu}
-          aria-label="القائمة"
-          className="grid w-12 shrink-0 place-items-center rounded-[5px] bg-white text-black"
-        >
-          <MenuIcon className="size-5" />
-        </button>
-
-        <button
-          type="button"
-          onClick={onOrderType}
-          className="flex min-w-0 flex-1 items-center justify-between rounded-[5px] bg-white px-3 text-right text-black"
-        >
-          <span className="min-w-0">
-            <small className="block text-[10px] leading-none text-[#777]">نوع الطلب</small>
-            <span className="mt-1 block truncate text-xs font-bold">
-              {ORDER_TYPE_LABEL[selection.orderType] ?? selection.orderType}
-            </span>
-          </span>
-          <span className="max-w-[45%] truncate text-[10px] text-[#878787]">{selection.branchNameAr}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={onCart}
-          aria-label="السلة"
-          className="relative grid w-12 shrink-0 place-items-center rounded-[5px] bg-white text-black"
-        >
-          <ShoppingBag className="size-5" />
-          {count > 0 ? (
-            <span className="absolute -end-1 -top-1 min-w-5 rounded-full bg-black px-1 text-center text-[10px] font-extrabold text-white">
-              {count}
-            </span>
-          ) : null}
-        </button>
-      </nav>
-    </div>
-  );
-}
-
-function SideDrawer({ open, onClose, onBranches }: { open: boolean; onClose: () => void; onBranches: () => void }) {
-  if (!open) return null;
-  const staticItems = ["الرئيسية", "حسابي", "اتصل بنا", "سياسة الخصوصية", "الشروط والأحكام"];
-
-  return (
-    <div className="fixed inset-0 z-[70] bg-black/45 p-3" onClick={onClose}>
-      <aside
-        className="flex h-full w-[min(86vw,340px)] flex-col overflow-hidden rounded-[10px] bg-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-[#ededed] p-3">
-          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-[5px] border border-[#ededed]">
-            <ChevronLeft className="size-4" />
-          </button>
-          <span className="text-sm font-bold">القائمة</span>
-        </div>
-        <nav className="flex-1 overflow-y-auto p-3">
-          {staticItems.map((item) => (
-            <a key={item} href={item === "الرئيسية" ? "/menu" : item === "اتصل بنا" ? "#storefront-footer" : "#"} onClick={onClose} className="block border-b border-[#f1f1f1] px-2 py-4 text-sm font-medium">
-              {item}
-            </a>
-          ))}
-          <button type="button" onClick={() => { onBranches(); onClose(); }} className="block w-full border-b border-[#f1f1f1] px-2 py-4 text-right text-sm font-medium">
-            الفروع
-          </button>
-          <a href="#" onClick={onClose} className="block px-2 py-4 text-sm font-medium">English</a>
-        </nav>
-      </aside>
-    </div>
-  );
-}
-
-function SearchOverlay({ open, value, onChange, onClose }: { open: boolean; value: string; onChange: (value: string) => void; onClose: () => void }) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[75] bg-black/35" onClick={onClose}>
-      <div className="flex h-16 w-full items-center gap-2 bg-white px-3 shadow-md" onClick={(event) => event.stopPropagation()}>
-        <Search className="size-5 text-[#777]" />
-        <input autoFocus value={value} onChange={(event) => onChange(event.target.value)} placeholder="بحث عن ..." className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" />
-        <button type="button" onClick={onClose} className="grid size-10 place-items-center"><X className="size-5" /></button>
-      </div>
-    </div>
   );
 }
 
@@ -372,16 +276,12 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
   const picture = (
     <picture className="block w-full">
       {banner.mobile_image_url ? <source media="(max-width: 639px)" srcSet={banner.mobile_image_url} /> : null}
-      <img
-        src={banner.image_url}
-        alt={banner.title_ar ?? banner.title_en ?? "عرض"}
-        className="block h-auto w-full object-cover"
-      />
+      <img src={banner.image_url} alt={banner.title_ar ?? banner.title_en ?? "عرض"} className="block h-auto w-full object-cover" />
     </picture>
   );
 
   return (
-    <section className="mb-4 w-full overflow-hidden bg-white">
+    <section className="mb-3 w-full overflow-hidden bg-white">
       {banner.link_url ? (
         <a
           href={banner.link_url}
@@ -399,13 +299,13 @@ function StorefrontHero({ banners }: { banners: StorefrontBanner[] }) {
 function MobileCategories({ categories, active, onSelect }: { categories: Category[]; active: string | null; onSelect: (id: string) => void }) {
   if (!categories.length) return null;
   return (
-    <nav className="sticky top-16 z-30 -mx-3 mb-4 flex gap-2 overflow-x-auto bg-[#fdfdfd]/95 px-3 py-2 no-scrollbar lg:hidden">
+    <nav className="sticky top-0 z-30 -mx-3 mb-4 flex gap-2 overflow-x-auto bg-[#fdfdfd]/95 px-3 py-2 no-scrollbar lg:hidden">
       {categories.map((category) => (
         <button
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`shrink-0 rounded-[8px] px-4 py-2 text-xs font-bold ${active === category.id ? "bg-black text-white" : "bg-[#f1f1f1] text-[#777]"}`}
+          className={`shrink-0 rounded-[8px] px-4 py-2 text-xs font-bold ${active === category.id ? "bg-[#090306] text-white" : "bg-[#f1f1f1] text-[#777]"}`}
         >
           {category.name_ar}
         </button>
@@ -415,14 +315,15 @@ function MobileCategories({ categories, active, onSelect }: { categories: Catego
 }
 
 function DesktopCategories({ categories, active, onSelect }: { categories: Category[]; active: string | null; onSelect: (id: string) => void }) {
+  if (!categories.length) return null;
   return (
-    <aside className="sticky top-[74px] hidden overflow-hidden rounded-[10px] border border-[#ededed] bg-white lg:block">
+    <aside className="sticky top-5 overflow-hidden rounded-[10px] border border-[#ededed] bg-white">
       {categories.map((category) => (
         <button
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`block w-full border-b border-[#f1f1f1] px-4 py-4 text-right text-sm font-bold last:border-b-0 ${active === category.id ? "bg-black text-white" : "bg-white text-black hover:bg-[#f7f7f7]"}`}
+          className={`block w-full border-b border-[#f1f1f1] px-4 py-4 text-right text-sm font-bold last:border-b-0 ${active === category.id ? "bg-[#090306] text-white" : "bg-white text-black hover:bg-[#f7f7f7]"}`}
         >
           {category.name_ar}
         </button>
@@ -434,10 +335,10 @@ function DesktopCategories({ categories, active, onSelect }: { categories: Categ
 function CategorySection({ category, onOpen, registerRef }: { category: Category; onOpen: (product: Product) => void; registerRef: (node: HTMLElement | null) => void }) {
   const products = category.products ?? [];
   return (
-    <section ref={registerRef} data-category-id={category.id} className="scroll-mt-32">
+    <section ref={registerRef} data-category-id={category.id} className="scroll-mt-20">
       <div className="mb-3 flex flex-col gap-0.5">
-        <h2 className="text-lg font-extrabold">{category.name_ar}</h2>
-        {category.name_en ? <p className="text-xs font-normal text-[#878787]">{category.name_en}</p> : null}
+        <h2 className="text-base font-bold sm:text-lg">{category.name_ar}</h2>
+        {category.name_en ? <small className="text-xs font-normal text-[#878787]">{category.name_en}</small> : null}
       </div>
       <div className="space-y-3">
         {products.map((product) => <ProductRow key={product.id} product={product} onOpen={onOpen} />)}
@@ -453,22 +354,19 @@ function ProductRow({ product, onOpen }: { product: Product; onOpen: (product: P
       type="button"
       disabled={outOfStock}
       onClick={() => onOpen(product)}
-      className={`flex w-full items-stretch justify-between gap-2 rounded-[10px] border border-[#ededed] bg-white p-2 text-right transition ${outOfStock ? "cursor-not-allowed opacity-45" : "hover:border-black/20"}`}
+      className={`flex w-full items-stretch justify-between gap-2 rounded-[10px] border border-[#ededed] bg-white p-2 text-right ${outOfStock ? "cursor-not-allowed opacity-45" : ""}`}
     >
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 p-1">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-extrabold sm:text-base">{product.name_ar}</h3>
-            {outOfStock ? <span className="rounded-[5px] bg-danger/10 px-2 py-0.5 text-[10px] font-bold text-danger">غير متوفر</span> : null}
-          </div>
-          {product.desc_ar ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#777]">{product.desc_ar}</p> : null}
+        <div className="flex-grow">
+          <h3 className="text-sm font-bold sm:text-base">{product.name_ar}</h3>
+          {product.desc_ar ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#878787]">{product.desc_ar}</p> : null}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="rounded-[5px] bg-[#f1f1f1] px-2.5 py-1 text-sm font-bold text-black">{formatSAR(Number(product.price ?? 0))}</span>
-          {product.calories != null ? <span className="rounded-[5px] bg-[#f1f1f1] px-2.5 py-1 text-[11px] text-[#777]">{formatCalories(product.calories)}</span> : null}
+        <div className="flex items-center justify-between gap-2">
+          <span className="rounded-[6px] px-2 py-1 text-sm font-medium text-black">{formatSAR(Number(product.price ?? 0))}</span>
+          {product.calories != null ? <span className="rounded-[6px] px-2 py-1 text-[11px] text-[#878787]">{formatCalories(product.calories)}</span> : null}
         </div>
       </div>
-      <div className="h-[112px] w-[112px] shrink-0 overflow-hidden rounded-[8px] bg-[#f1f1f1] sm:h-[128px] sm:w-[128px]">
+      <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-[8px] bg-[#f1f1f1] sm:h-[120px] sm:w-[120px]">
         {product.image ? (
           <img src={product.image} alt={product.name_ar} loading="lazy" className="h-full w-full object-cover" />
         ) : (
@@ -480,19 +378,10 @@ function ProductRow({ product, onOpen }: { product: Product; onOpen: (product: P
 }
 
 function DesktopCart({ cart, total, count, onCheckout }: { cart: CartLine[]; total: number; count: number; onCheckout: () => void }) {
-  if (cart.length === 0) {
-    return (
-      <div className="rounded-[10px] border border-[#ededed] bg-white p-5 text-center">
-        <ShoppingBag className="mx-auto size-9 text-[#878787]" />
-        <p className="mt-3 text-sm">أضف اصناف من القائمة</p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-[10px] border border-[#ededed] bg-white p-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-extrabold">السلة</h3>
+        <h3 className="font-bold">السلة</h3>
         <span className="text-xs text-[#878787]">{count} صنف</span>
       </div>
       <div className="mt-3 divide-y divide-[#ededed]">
@@ -506,62 +395,92 @@ function DesktopCart({ cart, total, count, onCheckout }: { cart: CartLine[]; tot
         ))}
         {cart.length > 6 ? <p className="py-2 text-xs text-[#878787]">+ {cart.length - 6} أصناف أخرى</p> : null}
       </div>
-      <div className="mt-3 flex justify-between border-t border-[#ededed] pt-3 text-sm font-extrabold">
+      <div className="mt-3 flex justify-between border-t border-[#ededed] pt-3 text-sm font-bold">
         <span>الإجمالي</span><span>{formatSAR(total)}</span>
       </div>
-      <button type="button" onClick={onCheckout} className="mt-3 w-full rounded-[10px] bg-brand px-4 py-3 text-sm font-extrabold text-brand-ink">
+      <button type="button" onClick={onCheckout} className="mt-3 w-full rounded-[10px] bg-brand px-4 py-3 text-sm font-bold text-brand-ink">
         إكمال الطلب
       </button>
     </div>
   );
 }
 
-function themeValue(theme: Record<string, unknown> | null | undefined, key: string) {
-  const value = theme?.[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
+function OrderContextModal({
+  open,
+  branches,
+  loading,
+  onClose,
+  onChoose,
+}: {
+  open: boolean;
+  branches: Branch[];
+  loading: boolean;
+  onClose: () => void;
+  onChoose: (branch: Branch, orderType: OrderType) => void;
+}) {
+  const grouped = useMemo(() => {
+    const map = new Map<string, Branch[]>();
+    branches.forEach((branch) => {
+      if (branch.busy) return;
+      const city = branch.city_ar?.trim() || "فروع أخرى";
+      const bucket = map.get(city) ?? [];
+      bucket.push(branch);
+      map.set(city, bucket);
+    });
+    return [...map.entries()];
+  }, [branches]);
 
-function StorefrontFooter({ brandName, theme }: { brandName: string; theme: Record<string, unknown> | null }) {
-  const socials = [
-    ["Instagram", themeValue(theme, "instagram_url")],
-    ["Tiktok", themeValue(theme, "tiktok_url")],
-    ["Snapchat", themeValue(theme, "snapchat_url")],
-    ["Whatsapp", themeValue(theme, "whatsapp_url")],
-  ].filter((item): item is [string, string] => Boolean(item[1]));
-  const apps = [
-    ["App Store", themeValue(theme, "app_store_url")],
-    ["Google Play", themeValue(theme, "google_play_url")],
-  ].filter((item): item is [string, string] => Boolean(item[1]));
+  if (!open) return null;
 
   return (
-    <footer id="storefront-footer" className="mt-8 bg-black text-white">
-      {(socials.length > 0 || apps.length > 0) ? (
-        <div className="mx-auto flex max-w-[1140px] flex-col items-center justify-between gap-6 px-5 py-7 sm:flex-row">
-          {socials.length > 0 ? (
-            <div className="text-center sm:text-right">
-              <p className="mb-3 text-sm">تابعنا</p>
-              <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                {socials.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-[5px] border border-white/20 px-3 py-1.5 text-xs">{label}</a>)}
-              </div>
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/45 sm:items-center sm:p-5" onClick={onClose}>
+      <section className="max-h-[88vh] w-full max-w-xl overflow-hidden rounded-t-[18px] bg-white shadow-2xl sm:rounded-[14px]" onClick={(event) => event.stopPropagation()}>
+        <header className="flex items-center justify-between border-b border-[#ededed] px-4 py-4">
+          <div>
+            <h2 className="text-base font-bold">ابدأ طلبك</h2>
+            <p className="mt-1 text-xs text-[#878787]">اختر الفرع وطريقة الطلب</p>
+          </div>
+          <button type="button" onClick={onClose} className="grid size-9 place-items-center rounded-full bg-[#f1f1f1]" aria-label="إغلاق">
+            <X className="size-4" />
+          </button>
+        </header>
+
+        <div className="max-h-[calc(88vh-78px)] overflow-y-auto p-4">
+          {loading ? (
+            <div className="space-y-3">{[0, 1, 2].map((item) => <div key={item} className="h-28 animate-pulse rounded-[10px] bg-[#f1f1f1]" />)}</div>
+          ) : grouped.length === 0 ? (
+            <Notice title="لا توجد فروع متاحة" body="حاول مرة أخرى بعد قليل." />
+          ) : (
+            <div className="space-y-6">
+              {grouped.map(([city, cityBranches]) => (
+                <section key={city}>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-bold"><MapPin className="size-4" /> {city}</div>
+                  <div className="space-y-2">
+                    {cityBranches.map((branch) => (
+                      <article key={String(branch.branch_id ?? branch.id)} className="rounded-[10px] border border-[#ededed] p-3">
+                        <h3 className="text-sm font-bold">{branch.name_ar}</h3>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {(branch.order_types ?? []).map((type) => (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => onChoose(branch, type)}
+                              className="rounded-[8px] bg-[#090306] px-3 py-2.5 text-xs font-bold text-white"
+                            >
+                              {ORDER_TYPE_LABEL[type] ?? type}
+                            </button>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
-          ) : null}
-          {apps.length > 0 ? (
-            <div className="text-center sm:text-right">
-              <p className="mb-3 text-sm">حمل التطبيق</p>
-              <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
-                {apps.map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-[5px] bg-white px-3 py-1.5 text-xs font-bold text-black">{label}</a>)}
-              </div>
-            </div>
-          ) : null}
+          )}
         </div>
-      ) : null}
-      <div className="bg-white px-4 py-2 text-black">
-        <div className="mx-auto flex max-w-[1140px] items-center justify-between gap-3 text-[11px]">
-          <span>جميع الحقوق محفوظة © {brandName}</span>
-          <span className="text-[#878787]">Powered by TALAB</span>
-        </div>
-      </div>
-    </footer>
+      </section>
+    </div>
   );
 }
 

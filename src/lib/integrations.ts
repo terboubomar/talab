@@ -17,6 +17,60 @@ export type IntegrationProvider = {
   updated_at: string | null;
 };
 
+export type FoodicsBranch = {
+  id: string;
+  name: string;
+  name_localized: string | null;
+  reference: string | null;
+};
+
+export type FoodicsSetup = {
+  integration_id: string | null;
+  settings: Record<string, unknown>;
+  menus: Array<{
+    id: string;
+    brand_id: string;
+    name_ar: string;
+    name_en: string;
+    is_default: boolean;
+  }>;
+  branches: Array<{
+    id: string;
+    brand_id: string;
+    name_ar: string;
+    name_en: string;
+    pos_ref: string | null;
+  }>;
+  mappings: Array<{
+    id: string;
+    branch_id: string;
+    external_branch_id: string;
+    external_branch_name: string | null;
+    active: boolean;
+    last_synced_at: string | null;
+  }>;
+};
+
+export type FoodicsMenuPreview = {
+  ok: boolean;
+  preview: boolean;
+  counts: {
+    products: number;
+    categories: number;
+    modifier_groups: number;
+    modifier_options: number;
+    inserted_products?: number;
+    updated_products?: number;
+  };
+  sample?: Array<{
+    id: string;
+    name: string;
+    name_localized: string | null;
+    price: number;
+    category: string | null;
+  }>;
+};
+
 export async function fetchIntegrations(): Promise<IntegrationProvider[]> {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const { data, error } = await supabase.rpc("staff_integrations");
@@ -47,4 +101,74 @@ export async function removeIntegration(integrationId: string): Promise<void> {
     p_integration_id: integrationId,
   });
   if (error) throw error;
+}
+
+export async function fetchFoodicsSetup(): Promise<FoodicsSetup> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_foodics_setup");
+  if (error) throw error;
+  return data as FoodicsSetup;
+}
+
+export async function saveFoodicsSettings(input: {
+  targetMenuId: string;
+  environment: "production" | "sandbox";
+}): Promise<void> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { error } = await supabase.rpc("staff_save_foodics_settings", {
+    p_target_menu_id: input.targetMenuId,
+    p_environment: input.environment,
+  });
+  if (error) throw error;
+}
+
+export async function saveFoodicsBranchMapping(input: {
+  branchId: string;
+  externalBranchId: string;
+  externalBranchName?: string | null;
+  active?: boolean;
+}): Promise<string> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.rpc("staff_save_foodics_branch_mapping", {
+    p_branch_id: input.branchId,
+    p_external_branch_id: input.externalBranchId,
+    p_external_branch_name: input.externalBranchName ?? null,
+    p_active: input.active ?? true,
+  });
+  if (error) throw error;
+  return String(data);
+}
+
+export async function testFoodicsConnection(): Promise<{
+  ok: boolean;
+  environment: "production" | "sandbox";
+  branches: FoodicsBranch[];
+}> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("foodics-test", { body: {} });
+  if (error) throw error;
+  return data;
+}
+
+export async function pullFoodicsMenu(apply = false): Promise<FoodicsMenuPreview> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("foodics-menu-pull", {
+    body: { apply },
+  });
+  if (error) throw error;
+  return data as FoodicsMenuPreview;
+}
+
+export async function pushOrderToFoodics(orderId: string): Promise<{
+  ok: boolean;
+  alreadySent: boolean;
+  foodicsOrderRef: string;
+  attempt?: number;
+}> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("foodics-order-push", {
+    body: { orderId },
+  });
+  if (error) throw error;
+  return data;
 }

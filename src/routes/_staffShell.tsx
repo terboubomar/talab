@@ -18,6 +18,7 @@ const NAV_ITEMS: { label: string; to: string; perm?: string; anyPerm?: string[];
   { label: "العملاء", to: "/admin/customers", perm: "customers.view", enabled: true },
   { label: "الموظفين", to: "/admin/staff", perm: "staff.view", enabled: true },
   { label: "المدفوعات", to: "/admin/payments", anyPerm: ["payments.view", "orders.refund"], enabled: true },
+  { label: "متجر التطبيقات", to: "/admin/apps", perm: "integrations.manage", enabled: true },
   { label: "الإعدادات", to: "/admin/settings", perm: "settings.manage", enabled: false },
 ];
 

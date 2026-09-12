@@ -52,6 +52,7 @@ export function CallCenterOrderPanel({
   const [branchId, setBranchId] = useState("");
   const [orderType, setOrderType] = useState<OrderType>("pickup");
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("cash");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -105,54 +106,87 @@ export function CallCenterOrderPanel({
   }, [paymentLoading, paymentMethod, paymentOption]);
 
   useEffect(() => {
+    if (!categories.length) {
+      setSelectedCategoryId("");
+      return;
+    }
+    if (!categories.some((category) => category.id === selectedCategoryId)) {
+      setSelectedCategoryId(categories[0]?.id ?? "");
+    }
+  }, [categories, selectedCategoryId]);
+
+  useEffect(() => {
     if (!open) {
-      setBranchId(""); setOrderType("pickup"); setPaymentMethod("cash"); setName(""); setPhone(""); setNotes("");
-      setAreaId(""); setAddressText(""); setSearch(""); setCart([]); setEditingProduct(null);
-      setCustomerMatch(null); setMessage(null); setOnlineOrder(null);
+      setBranchId(""); setOrderType("pickup"); setPaymentMethod("cash"); setSelectedCategoryId("");
+      setName(""); setPhone(""); setNotes(""); setAreaId(""); setAddressText(""); setSearch("");
+      setCart([]); setEditingProduct(null); setCustomerMatch(null); setMessage(null); setOnlineOrder(null);
     }
   }, [open]);
 
-  const products = useMemo(() => categories.flatMap((category) => category.products ?? []), [categories]);
+  useEffect(() => {
+    if (!open) return;
+    const normalized = phone.replace(/\D/g, "");
+    if (normalized.length < 7) {
+      setCustomerMatch(null);
+      setLookupBusy(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLookupBusy(true);
+      try {
+        const customer = await lookupCallCenterCustomer(phone);
+        if (cancelled) return;
+        setCustomerMatch(customer);
+        if (customer) {
+          setName(customer.name ?? "");
+          const preferred = customer.addresses[0];
+          if (preferred && orderType === "delivery") {
+            if (preferred.area_id && branch?.delivery_zones.some((item) => item.area_id === preferred.area_id)) {
+              setAreaId(preferred.area_id);
+            }
+            setAddressText([
+              preferred.street,
+              preferred.unit_no && `مبنى ${preferred.unit_no}`,
+              preferred.floor && `طابق ${preferred.floor}`,
+              preferred.apartment && `شقة ${preferred.apartment}`,
+            ].filter(Boolean).join("، "));
+          }
+          setMessage("تم التعرف على العميل وتعبئة بياناته تلقائياً");
+        } else {
+          setCustomerMatch(null);
+          setMessage(null);
+        }
+      } catch {
+        if (!cancelled) setCustomerMatch(null);
+      } finally {
+        if (!cancelled) setLookupBusy(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [phone, open, orderType, branch]);
+
+  const selectedCategory = useMemo(
+    () => categories.find((category) => category.id === selectedCategoryId) ?? categories[0] ?? null,
+    [categories, selectedCategoryId],
+  );
   const filteredProducts = useMemo(() => {
+    const products = selectedCategory?.products ?? [];
     const q = search.trim().toLowerCase();
     if (!q) return products;
     return products.filter((product) => `${product.name_ar} ${product.name_en ?? ""}`.toLowerCase().includes(q));
-  }, [products, search]);
+  }, [selectedCategory, search]);
 
   const localSubtotal = cart.reduce((sum, line) => sum + (line.unitPrice + line.modifierUnitTotal) * line.qty, 0);
   const zone = branch?.delivery_zones.find((item) => item.area_id === areaId) ?? null;
   const estimatedDelivery = orderType === "delivery" && zone
     ? (localSubtotal >= Number(zone.min_order) ? Number(zone.fee) : Number(zone.below_min_fee))
     : 0;
-
-  async function lookupCustomer() {
-    if (phone.trim().length < 7) return;
-    setLookupBusy(true); setMessage(null);
-    try {
-      const customer = await lookupCallCenterCustomer(phone);
-      setCustomerMatch(customer);
-      if (customer) {
-        setName(customer.name ?? "");
-        const preferred = customer.addresses[0];
-        if (preferred && orderType === "delivery") {
-          if (preferred.area_id && branch?.delivery_zones.some((item) => item.area_id === preferred.area_id)) {
-            setAreaId(preferred.area_id);
-          }
-          setAddressText([
-            preferred.street,
-            preferred.unit_no && `مبنى ${preferred.unit_no}`,
-            preferred.floor && `طابق ${preferred.floor}`,
-            preferred.apartment && `شقة ${preferred.apartment}`,
-          ].filter(Boolean).join("، "));
-        }
-        setMessage("تم العثور على العميل وتعبئة بياناته السابقة");
-      } else {
-        setMessage("عميل جديد — أكمل الاسم والطلب");
-      }
-    } catch {
-      setMessage("تعذّر البحث عن العميل");
-    } finally { setLookupBusy(false); }
-  }
 
   function openProduct(product: Product) {
     setEditingProduct(product);
@@ -262,12 +296,7 @@ export function CallCenterOrderPanel({
             <button type="button" onClick={onClose} className="rounded-full p-2 hover:bg-secondary"><X className="size-4" /></button>
           </div>
           <div className="flex flex-1 items-start justify-center py-6">
-            <MoyasarPaymentForm
-              orderId={onlineOrder.orderId}
-              total={onlineOrder.total}
-              branchName={onlineOrder.branchName}
-              option={onlineOrder.option}
-            />
+            <MoyasarPaymentForm orderId={onlineOrder.orderId} total={onlineOrder.total} branchName={onlineOrder.branchName} option={onlineOrder.option} />
           </div>
           <button type="button" onClick={onClose} className="w-full rounded-card border border-border px-4 py-3 text-sm font-bold hover:bg-secondary">العودة إلى الطلبات</button>
         </div>
@@ -286,13 +315,24 @@ export function CallCenterOrderPanel({
         <div className="grid min-h-0 flex-1 lg:grid-cols-[1.5fr_0.9fr]">
           <section className="min-h-0 overflow-y-auto border-b border-border p-4 lg:border-b-0 lg:border-l">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="الفرع"><select value={branchId} onChange={(e) => { setBranchId(e.target.value); setCart([]); setPaymentMethod("cash"); }} className="cc-input"><option value="">اختر الفرع</option>{setup?.branches.map((item) => <option key={item.id} value={item.id}>{item.name_ar}</option>)}</select></Field>
+              <Field label="الفرع"><select value={branchId} onChange={(e) => { setBranchId(e.target.value); setCart([]); setPaymentMethod("cash"); setSelectedCategoryId(""); }} className="cc-input"><option value="">اختر الفرع</option>{setup?.branches.map((item) => <option key={item.id} value={item.id}>{item.name_ar}</option>)}</select></Field>
               <Field label="نوع الطلب"><select value={orderType} onChange={(e) => setOrderType(e.target.value as OrderType)} className="cc-input">{branch?.order_types.map((type) => <option key={type} value={type}>{ORDER_TYPE_LABEL[type]}</option>)}</select></Field>
             </div>
 
-            <div className="mt-4 relative"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ابحث عن صنف..." className="cc-input pe-10" /></div>
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+              {categories.map((category) => (
+                <button key={category.id} type="button" onClick={() => { setSelectedCategoryId(category.id); setSearch(""); }} className={`shrink-0 rounded-pill px-4 py-2 text-xs font-bold ${selectedCategory?.id === category.id ? "bg-brand text-brand-ink" : "border border-border bg-background"}`}>
+                  {category.name_ar}
+                  <span className="ms-1 opacity-60">({category.products?.length ?? 0})</span>
+                </button>
+              ))}
+            </div>
 
-            {setupLoading || menuLoading ? <div className="mt-4 h-48 animate-pulse rounded-card bg-secondary" /> : (
+            <div className="mt-3 relative"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`ابحث في ${selectedCategory?.name_ar ?? "القائمة"}...`} className="cc-input pe-10" /></div>
+
+            {setupLoading || menuLoading ? <div className="mt-4 h-48 animate-pulse rounded-card bg-secondary" /> : filteredProducts.length === 0 ? (
+              <p className="mt-6 rounded-card border border-dashed border-border p-8 text-center text-sm text-muted-foreground">لا توجد منتجات في هذه الفئة</p>
+            ) : (
               <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {filteredProducts.map((product) => (
                   <button key={product.id} type="button" disabled={!product.in_stock} onClick={() => openProduct(product)} className="rounded-card border border-border p-3 text-right hover:border-brand/50 disabled:cursor-not-allowed disabled:opacity-40">
@@ -306,9 +346,14 @@ export function CallCenterOrderPanel({
 
           <aside className="min-h-0 overflow-y-auto p-4">
             <div className="grid gap-3">
-              <Field label="رقم الجوال"><div className="flex gap-2"><input dir="ltr" value={phone} onChange={(e) => { setPhone(e.target.value); setCustomerMatch(null); }} className="cc-input flex-1" placeholder="05xxxxxxxx" /><button type="button" onClick={lookupCustomer} disabled={lookupBusy} className="rounded-card border border-border px-3 text-xs font-bold hover:bg-secondary">{lookupBusy ? "..." : "بحث"}</button></div></Field>
-              <Field label="اسم العميل"><input value={name} onChange={(e) => setName(e.target.value)} className="cc-input" placeholder="اسم العميل" /></Field>
-              {customerMatch ? <p className="rounded-card bg-success/10 px-3 py-2 text-[11px] font-bold text-success">عميل مسجل · {customerMatch.addresses.length} عنوان محفوظ</p> : null}
+              <Field label="رقم الجوال">
+                <div className="relative">
+                  <input dir="ltr" value={phone} onChange={(e) => { setPhone(e.target.value); setCustomerMatch(null); }} className="cc-input pe-9" placeholder="05xxxxxxxx" />
+                  {lookupBusy ? <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">...</span> : null}
+                </div>
+              </Field>
+              <Field label="اسم العميل"><input value={name} onChange={(e) => setName(e.target.value)} className="cc-input" placeholder="يُعبأ تلقائياً للعميل المسجل" /></Field>
+              {customerMatch ? <p className="rounded-card bg-success/10 px-3 py-2 text-[11px] font-bold text-success">تم التعرف على {customerMatch.name} · {customerMatch.addresses.length} عنوان محفوظ</p> : null}
 
               {orderType === "delivery" ? <>
                 <Field label="منطقة التوصيل"><select value={areaId} onChange={(e) => setAreaId(e.target.value)} className="cc-input"><option value="">اختر المنطقة</option>{branch?.delivery_zones.map((item) => <option key={item.area_id} value={item.area_id}>{item.name_ar} · {formatSAR(Number(item.fee))}</option>)}</select></Field>

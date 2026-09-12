@@ -145,6 +145,14 @@ function MenuPage() {
     pushProductUrl(product.id);
   }
 
+  function openSuggestedProduct(productId: string) {
+    const suggested = allProducts.find((item) => item.id === productId);
+    if (!suggested) return;
+    setOpenProduct(suggested);
+    setUrlProductId(suggested.id);
+    pushProductUrl(suggested.id);
+  }
+
   function closeProduct() {
     setOpenProduct(null);
     setUrlProductId(null);
@@ -258,7 +266,15 @@ function MenuPage() {
         </div>
       ) : null}
 
-      {openProduct ? <ProductSheet product={openProduct} branchId={selection?.branchId ?? null} onClose={closeProduct} onAdd={addToCart} /> : null}
+      {openProduct ? (
+        <ProductSheet
+          product={openProduct}
+          branchId={selection?.branchId ?? null}
+          onClose={closeProduct}
+          onAdd={addToCart}
+          onOpenSuggested={openSuggestedProduct}
+        />
+      ) : null}
 
       <StorefrontOrderContextModal
         open={selectorOpen}

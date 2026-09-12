@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FilterX, RefreshCw, Volume2, Wifi, WifiOff } from "lucide-react";
+import { FilterX, RefreshCw, Search, Volume2, Wifi, WifiOff } from "lucide-react";
 
 import { DeliveryAssignmentPanel } from "@/components/admin/DeliveryAssignmentPanel";
 import { OrderDetailWorkspace } from "@/components/admin/OrderDetailWorkspace";
@@ -11,6 +11,7 @@ import { PAYMENT_STATUS_LABEL } from "@/lib/payments";
 import { usePermissions } from "@/lib/permissions";
 import {
   fetchOrderFilterOptions,
+  fetchOrderTabCounts,
   fetchStaffOrders,
   updateOrderStatus,
   ORDER_SOURCE_LABEL,
@@ -18,22 +19,22 @@ import {
   STATUS_LABEL,
   type OrderStatus,
   type OrderType,
+  type OrderView,
   type StaffOrder,
 } from "@/lib/staff";
 import { supabase } from "@/lib/supabase";
 
 export const Route = createFileRoute("/_staffShell/admin/orders")({
-  head: () => ({ meta: [{ title: "طلبات الفرع — طلب" }] }),
+  head: () => ({ meta: [{ title: "الطلبات — طلب" }] }),
   component: StaffOrdersPage,
 });
 
-const TABS: { key: string; label: string; statuses: OrderStatus[] }[] = [
-  { key: "pending", label: "بانتظار القبول", statuses: ["pending"] },
-  { key: "active", label: "قيد التجهيز", statuses: ["accepted", "preparing"] },
-  { key: "ready", label: "جاهزة", statuses: ["ready", "out_for_delivery"] },
-  { key: "done", label: "مكتملة", statuses: ["completed", "cancelled"] },
+const TABS: Array<{ key: OrderView; label: string }> = [
+  { key: "active", label: "نشط" },
+  { key: "today", label: "اليوم" },
+  { key: "scheduled", label: "مجدول" },
+  { key: "all", label: "الكل" },
 ];
-const DEFAULT_TAB = TABS[0] as (typeof TABS)[number];
 
 function nextAction(order: StaffOrder): { label: string; next: OrderStatus } | null {
   switch (order.status) {
@@ -59,17 +60,26 @@ function formatPlacedAt(value: string) {
       day: "2-digit",
       month: "2-digit",
     }).format(new Date(value));
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
+}
+
+function elapsed(value: string) {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (minutes < 1) return "الآن";
+  if (minutes < 60) return `منذ ${minutes} دقيقة`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `منذ ${hours} ساعة`;
+  return `منذ ${Math.floor(hours / 24)} يوم`;
 }
 
 function StaffOrdersPage() {
-  const [tab, setTab] = useState(DEFAULT_TAB.key);
+  const [tab, setTab] = useState<OrderView>("active");
   const [branchId, setBranchId] = useState("");
   const [orderType, setOrderType] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
   const [source, setSource] = useState("");
+  const [status, setStatus] = useState("");
+  const [search, setSearch] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [posPendingId, setPosPendingId] = useState<string | null>(null);
@@ -82,31 +92,43 @@ function StaffOrdersPage() {
   const canViewDetail = can("orders.detail.view");
   const audioContextRef = useRef<AudioContext | null>(null);
   const soundEnabledRef = useRef(false);
-  const activeTab = TABS.find((t) => t.key === tab) ?? DEFAULT_TAB;
 
-  const { data: filterOptions } = useQuery({
-    queryKey: ["staff_order_filter_options"],
-    queryFn: fetchOrderFilterOptions,
+  const { data: filterOptions } = useQuery({ queryKey: ["staff_order_filter_options"], queryFn: fetchOrderFilterOptions });
+  const { data: counts } = useQuery({
+    queryKey: ["staff_order_tab_counts"],
+    queryFn: fetchOrderTabCounts,
+    refetchInterval: realtimeConnected ? 60_000 : 20_000,
   });
-
   const { data: orders, isLoading } = useQuery({
-    queryKey: ["staff_orders", activeTab.statuses, branchId, orderType, paymentMethod, source],
-    queryFn: () => fetchStaffOrders(activeTab.statuses, {
+    queryKey: ["staff_orders", tab, branchId, orderType, paymentMethod, source, status],
+    queryFn: () => fetchStaffOrders(tab, {
       branchId: branchId || null,
       orderType: (orderType || null) as OrderType | null,
       paymentMethod: (paymentMethod || null) as "cash" | "online" | null,
       source: source || null,
+      status: (status || null) as OrderStatus | null,
     }),
     refetchInterval: realtimeConnected ? 60_000 : 12_000,
   });
-  const grouped = useMemo(() => orders ?? [], [orders]);
-  const filtersActive = Boolean(branchId || orderType || paymentMethod || source);
+
+  const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase().replaceAll(" ", "");
+    if (!q) return orders ?? [];
+    return (orders ?? []).filter((order) => {
+      const haystack = [
+        order.id,
+        order.id.slice(0, 8),
+        order.customers?.phone ?? "",
+        order.customers?.name ?? "",
+      ].join(" ").toLowerCase().replaceAll(" ", "");
+      return haystack.includes(q);
+    });
+  }, [orders, search]);
+
+  const filtersActive = Boolean(branchId || orderType || paymentMethod || source || status || search);
 
   function clearFilters() {
-    setBranchId("");
-    setOrderType("");
-    setPaymentMethod("");
-    setSource("");
+    setBranchId(""); setOrderType(""); setPaymentMethod(""); setSource(""); setStatus(""); setSearch("");
   }
 
   function playNewOrderSound() {
@@ -120,17 +142,9 @@ function StaffOrdersPage() {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
     gain.connect(audioContext.destination);
     const first = audioContext.createOscillator();
-    first.type = "sine";
-    first.frequency.setValueAtTime(880, now);
-    first.connect(gain);
-    first.start(now);
-    first.stop(now + 0.18);
+    first.type = "sine"; first.frequency.setValueAtTime(880, now); first.connect(gain); first.start(now); first.stop(now + 0.18);
     const second = audioContext.createOscillator();
-    second.type = "sine";
-    second.frequency.setValueAtTime(1175, now + 0.2);
-    second.connect(gain);
-    second.start(now + 0.2);
-    second.stop(now + 0.4);
+    second.type = "sine"; second.frequency.setValueAtTime(1175, now + 0.2); second.connect(gain); second.start(now + 0.2); second.stop(now + 0.4);
   }
 
   async function enableSound() {
@@ -139,19 +153,12 @@ function StaffOrdersPage() {
       const audioContext = audioContextRef.current ?? new window.AudioContext();
       audioContextRef.current = audioContext;
       if (audioContext.state === "suspended") await audioContext.resume();
-      soundEnabledRef.current = true;
-      setSoundEnabled(true);
-      playNewOrderSound();
-    } catch {
-      setActionError("تعذّر تفعيل تنبيه الصوت على هذا الجهاز");
-    }
+      soundEnabledRef.current = true; setSoundEnabled(true); playNewOrderSound();
+    } catch { setActionError("تعذّر تفعيل تنبيه الصوت على هذا الجهاز"); }
   }
 
   useEffect(() => {
-    if (!supabase) {
-      setRealtimeConnected(false);
-      return;
-    }
+    if (!supabase) { setRealtimeConnected(false); return; }
     let active = true;
     const client = supabase;
     const confirmedStatuses = new Set(["paid", "partially_refunded"]);
@@ -160,52 +167,37 @@ function StaffOrdersPage() {
       { event: "*", schema: "public", table: "orders" },
       (payload) => {
         void queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
+        void queryClient.invalidateQueries({ queryKey: ["staff_order_tab_counts"] });
         if (selectedOrderId) void queryClient.invalidateQueries({ queryKey: ["staff_order_detail", selectedOrderId] });
         const next = (payload.new ?? {}) as { payment_method?: string; payment_status?: string };
         const previous = (payload.old ?? {}) as { payment_method?: string; payment_status?: string };
-        if (payload.eventType === "INSERT" && next.payment_method !== "online") {
-          playNewOrderSound();
-          return;
-        }
-        if (
-          payload.eventType === "UPDATE" && next.payment_method === "online" &&
-          confirmedStatuses.has(next.payment_status ?? "") && !confirmedStatuses.has(previous.payment_status ?? "")
-        ) playNewOrderSound();
+        if (payload.eventType === "INSERT" && next.payment_method !== "online") { playNewOrderSound(); return; }
+        if (payload.eventType === "UPDATE" && next.payment_method === "online" && confirmedStatuses.has(next.payment_status ?? "") && !confirmedStatuses.has(previous.payment_status ?? "")) playNewOrderSound();
       },
-    ).subscribe((status) => {
-      if (active) setRealtimeConnected(status === "SUBSCRIBED");
-    });
-    return () => {
-      active = false;
-      setRealtimeConnected(false);
-      void client.removeChannel(channel);
-    };
+    ).subscribe((connectionStatus) => { if (active) setRealtimeConnected(connectionStatus === "SUBSCRIBED"); });
+    return () => { active = false; setRealtimeConnected(false); void client.removeChannel(channel); };
   }, [queryClient, selectedOrderId]);
 
-  useEffect(() => () => {
-    const audioContext = audioContextRef.current;
-    if (audioContext) void audioContext.close();
-  }, []);
+  useEffect(() => () => { const audioContext = audioContextRef.current; if (audioContext) void audioContext.close(); }, []);
 
   async function handleAction(orderId: string, next: OrderStatus) {
-    setPendingId(orderId);
-    setActionError(null);
+    setPendingId(orderId); setActionError(null);
     try {
       await updateOrderStatus(orderId, next);
-      await queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["staff_orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["staff_order_tab_counts"] }),
+      ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (message.includes("payment_not_confirmed")) setActionError("لا يمكن قبول الطلب قبل تأكيد الدفع الإلكتروني.");
       else if (message.includes("delivery_assignment_required")) setActionError("يجب إسناد طلب التوصيل إلى سائق أو شركة توصيل قبل بدء التوصيل.");
       else setActionError("تعذّر تحديث حالة الطلب");
-    } finally {
-      setPendingId(null);
-    }
+    } finally { setPendingId(null); }
   }
 
   async function handleFoodicsPush(order: StaffOrder) {
-    setPosPendingId(order.id);
-    setActionError(null);
+    setPosPendingId(order.id); setActionError(null);
     try {
       const result = await pushOrderToFoodics(order.id);
       setActionError(result.alreadySent ? `الطلب مرسل مسبقاً إلى فودكس: ${result.foodicsOrderRef}` : `تم إرسال الطلب إلى فودكس: ${result.foodicsOrderRef}`);
@@ -213,36 +205,27 @@ function StaffOrdersPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       if (message.includes("foodics_branch_not_mapped")) setActionError("فرع الطلب غير مربوط بفرع Foodics من متجر التطبيقات.");
-      else if (message.includes("foodics_product_not_mapped") || message.includes("foodics_modifier_not_mapped")) setActionError("يحتوي الطلب على منتج أو إضافة غير مرتبطة بـ Foodics. اسحب القائمة أو راجع POS ID.");
-      else setActionError("فشل إرسال الطلب إلى Foodics. راجع حالة الربط وسجل الإرسال.");
-      await queryClient.invalidateQueries({ queryKey: ["staff_orders"] });
-    } finally {
-      setPosPendingId(null);
-    }
+      else if (message.includes("foodics_product_not_mapped") || message.includes("foodics_modifier_not_mapped")) setActionError("يحتوي الطلب على منتج أو إضافة غير مرتبطة بـ Foodics.");
+      else setActionError("فشل إرسال الطلب إلى Foodics. راجع حالة الربط.");
+    } finally { setPosPendingId(null); }
   }
 
   return (
     <main className="min-h-screen pb-10">
       <header className="sticky top-0 z-20 border-b border-border bg-background px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h1 className="text-base font-extrabold">طلبات الفرع</h1>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">{grouped.length} طلب في العرض الحالي</p>
-          </div>
+          <div><h1 className="text-base font-extrabold">الطلبات</h1><p className="mt-0.5 text-[11px] text-muted-foreground">إدارة ومتابعة جميع طلبات الفروع</p></div>
           <div className="flex items-center gap-2">
             <span className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-bold ${realtimeConnected ? "border-success/30 bg-success/10 text-success" : "border-border text-muted-foreground"}`}>
-              {realtimeConnected ? <Wifi aria-hidden className="size-3" /> : <WifiOff aria-hidden className="size-3" />}
-              {realtimeConnected ? "مباشر" : "تحديث تلقائي"}
+              {realtimeConnected ? <Wifi className="size-3" /> : <WifiOff className="size-3" />}{realtimeConnected ? "مباشر" : "تحديث تلقائي"}
             </span>
-            <button type="button" onClick={enableSound} className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-bold ${soundEnabled ? "border-brand/30 bg-brand/10 text-brand" : "border-border text-muted-foreground"}`}>
-              <Volume2 aria-hidden className="size-3" />{soundEnabled ? "الصوت مفعّل" : "تفعيل الصوت"}
-            </button>
+            <button type="button" onClick={enableSound} className={`inline-flex items-center gap-1 rounded-pill border px-2.5 py-1 text-[11px] font-bold ${soundEnabled ? "border-brand/30 bg-brand/10 text-brand" : "border-border text-muted-foreground"}`}><Volume2 className="size-3" />{soundEnabled ? "الصوت مفعّل" : "تفعيل الصوت"}</button>
           </div>
         </div>
-        <nav className="mt-3 flex gap-2 overflow-x-auto">
-          {TABS.map((t) => (
-            <button key={t.key} type="button" onClick={() => setTab(t.key)} className={`shrink-0 rounded-pill px-4 py-2 text-sm font-bold ${t.key === tab ? "bg-brand text-brand-ink" : "border border-border text-muted-foreground"}`}>
-              {t.label}
+        <nav className="mt-4 flex gap-2 overflow-x-auto">
+          {TABS.map((item) => (
+            <button key={item.key} type="button" onClick={() => setTab(item.key)} className={`flex shrink-0 items-center gap-2 rounded-pill px-4 py-2 text-sm font-bold ${item.key === tab ? "bg-brand text-brand-ink" : "border border-border text-muted-foreground"}`}>
+              {item.label}<span className={`rounded-full px-2 py-0.5 text-[10px] ${item.key === tab ? "bg-black/10" : "bg-secondary"}`}>{counts?.[item.key] ?? "—"}</span>
             </button>
           ))}
         </nav>
@@ -250,97 +233,55 @@ function StaffOrdersPage() {
 
       <div className="px-5 py-6">
         <section className="mb-4 rounded-card border border-border bg-background p-3">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            <OrderFilter value={branchId} onChange={setBranchId} label="الفرع">
-              <option value="">كل الفروع</option>
-              {filterOptions?.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-            </OrderFilter>
-            <OrderFilter value={orderType} onChange={setOrderType} label="نوع الطلب">
-              <option value="">كل الأنواع</option>
-              {(Object.keys(ORDER_TYPE_LABEL) as OrderType[]).map((type) => <option key={type} value={type}>{ORDER_TYPE_LABEL[type]}</option>)}
-            </OrderFilter>
-            <OrderFilter value={paymentMethod} onChange={setPaymentMethod} label="طريقة الدفع">
-              <option value="">كل طرق الدفع</option>
-              <option value="cash">الدفع عند الاستلام</option>
-              <option value="online">دفع إلكتروني</option>
-            </OrderFilter>
-            <OrderFilter value={source} onChange={setSource} label="مصدر الطلب">
-              <option value="">كل المصادر</option>
-              {(filterOptions?.sources ?? []).map((item) => <option key={item} value={item}>{ORDER_SOURCE_LABEL[item] ?? item}</option>)}
-            </OrderFilter>
-            <div className="flex items-end">
-              <button type="button" onClick={clearFilters} disabled={!filtersActive} className="flex w-full items-center justify-center gap-1.5 rounded-card border border-border px-3 py-2.5 text-xs font-bold disabled:opacity-40">
-                <FilterX className="size-3.5" /> مسح الفلاتر
-              </button>
-            </div>
+          <div className="relative mb-3"><Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="ابحث برقم الطلب أو جوال أو اسم العميل..." className="w-full rounded-card border border-border bg-background py-2.5 pe-10 ps-3 text-sm" /></div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <OrderFilter value={branchId} onChange={setBranchId} label="الفرع"><option value="">كل الفروع</option>{filterOptions?.branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</OrderFilter>
+            <OrderFilter value={status} onChange={setStatus} label="الحالة"><option value="">كل الحالات</option>{(Object.keys(STATUS_LABEL) as OrderStatus[]).map((item)=><option key={item} value={item}>{STATUS_LABEL[item]}</option>)}</OrderFilter>
+            <OrderFilter value={orderType} onChange={setOrderType} label="نوع الطلب"><option value="">كل الأنواع</option>{(Object.keys(ORDER_TYPE_LABEL) as OrderType[]).map((type) => <option key={type} value={type}>{ORDER_TYPE_LABEL[type]}</option>)}</OrderFilter>
+            <OrderFilter value={source} onChange={setSource} label="المصدر"><option value="">كل المصادر</option>{(filterOptions?.sources ?? []).map((item) => <option key={item} value={item}>{ORDER_SOURCE_LABEL[item] ?? item}</option>)}</OrderFilter>
+            <OrderFilter value={paymentMethod} onChange={setPaymentMethod} label="الدفع"><option value="">كل طرق الدفع</option><option value="cash">عند الاستلام</option><option value="online">إلكتروني</option></OrderFilter>
+            <div className="flex items-end"><button type="button" onClick={clearFilters} disabled={!filtersActive} className="flex w-full items-center justify-center gap-1.5 rounded-card border border-border px-3 py-2.5 text-xs font-bold disabled:opacity-40"><FilterX className="size-3.5" /> مسح</button></div>
           </div>
         </section>
 
         {actionError ? <div className="mb-4 rounded-card border border-border bg-secondary p-3 text-center text-sm font-bold">{actionError}</div> : null}
-        {isLoading ? (
-          <div className="grid gap-3">{[0, 1].map((i) => <div key={i} className="card-surface h-28 animate-pulse opacity-60" />)}</div>
-        ) : grouped.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm font-bold">لا توجد طلبات مطابقة</p>
-            <p className="mt-1 text-xs text-muted-foreground">غيّر الحالة أو امسح بعض الفلاتر.</p>
-          </div>
+        {isLoading ? <div className="grid gap-3">{[0,1,2].map((i)=><div key={i} className="card-surface h-36 animate-pulse opacity-60" />)}</div> : grouped.length === 0 ? (
+          <div className="py-16 text-center"><p className="text-sm font-bold">لا توجد طلبات مطابقة</p><p className="mt-1 text-xs text-muted-foreground">غيّر الفلاتر أو اختر تبويباً آخر.</p></div>
         ) : (
           <div className="grid gap-3">
             {grouped.map((order) => {
               const action = nextAction(order);
               const isPending = pendingId === order.id;
               const isPosPending = posPendingId === order.id;
-              const sourceLabel = ORDER_SOURCE_LABEL[order.source] ?? order.source;
               return (
-                <article
-                  key={order.id}
-                  role={canViewDetail ? "button" : undefined}
-                  tabIndex={canViewDetail ? 0 : undefined}
-                  onClick={() => { if (canViewDetail) setSelectedOrderId(order.id); }}
-                  onKeyDown={(event) => { if (canViewDetail && (event.key === "Enter" || event.key === " ")) setSelectedOrderId(order.id); }}
-                  className={`card-surface p-4 ${order.source === "call_center" ? "border-brand/30" : ""} ${canViewDetail ? "cursor-pointer transition hover:border-brand/40 hover:shadow-sm" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
+                <article key={order.id} role={canViewDetail ? "button" : undefined} tabIndex={canViewDetail ? 0 : undefined} onClick={() => { if (canViewDetail) setSelectedOrderId(order.id); }} onKeyDown={(event) => { if (canViewDetail && (event.key === "Enter" || event.key === " ")) setSelectedOrderId(order.id); }} className={`card-surface p-4 ${canViewDetail ? "cursor-pointer transition hover:border-brand/40 hover:shadow-sm" : ""}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-bold">{order.customers?.name ?? "عميل"}</span>
-                        <span dir="ltr" className="text-xs text-muted-foreground">{order.customers?.phone}</span>
+                        <span className="rounded-pill bg-secondary px-2.5 py-1 text-[11px] font-extrabold">{STATUS_LABEL[order.status]}</span>
+                        <span className="text-sm font-extrabold">#{order.id.slice(0,8)}</span>
+                        <span className="text-xs font-bold text-brand">{order.branches?.name_ar ?? "الفرع غير محدد"}</span>
+                        <span className="text-[11px] text-muted-foreground">{elapsed(order.placed_at)}</span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="chip">{ORDER_TYPE_LABEL[order.order_type]}</span>
-                        <span className="chip">{STATUS_LABEL[order.status]}</span>
-                        <span className="chip">{order.payment_method === "cash" ? "الدفع عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}</span>
-                        <span className={`rounded-pill px-2 py-1 text-[10px] font-bold ${order.source === "call_center" ? "bg-brand/10 text-brand" : "bg-secondary text-muted-foreground"}`}>{sourceLabel}</span>
-                        {order.branches?.name_ar ? <span className="chip">{order.branches.name_ar}</span> : null}
-                        <PosBadge order={order} />
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span>{order.customers?.name ?? "عميل"}</span><span dir="ltr">{order.customers?.phone}</span><span>{ORDER_TYPE_LABEL[order.order_type]}</span><span>{ORDER_SOURCE_LABEL[order.source] ?? order.source}</span><span>{order.payment_method === "cash" ? "عند الاستلام" : PAYMENT_STATUS_LABEL[order.payment_status]}</span>
                       </div>
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>#{order.id.slice(0, 8)}</span>
-                        <span>{formatPlacedAt(order.placed_at)}</span>
-                        {order.source === "call_center" ? <span>موظف خدمة العملاء: <strong className="text-foreground">{order.created_by_staff?.name ?? "غير محدد"}</strong></span> : null}
-                      </div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-muted-foreground"><span>{formatPlacedAt(order.placed_at)}</span>{order.scheduled_for ? <span>مجدول: {formatPlacedAt(order.scheduled_for)}</span> : null}{order.source === "call_center" && order.created_by_staff?.name ? <span>خدمة العملاء: {order.created_by_staff.name}</span> : null}{order.pos_ref ? <span dir="ltr">Foodics #{order.pos_ref}</span> : null}</div>
                     </div>
-                    <span className="shrink-0 text-sm font-bold text-brand">{formatSAR(order.total)}</span>
+                    <span className="shrink-0 text-base font-extrabold text-brand">{formatSAR(Number(order.total))}</span>
                   </div>
 
-                  <ul className="mt-3 divide-y divide-border border-t border-border pt-2 text-sm">
-                    {order.order_items.map((item) => (
-                      <li key={item.id} className="flex flex-col gap-0.5 py-1.5">
-                        <div className="flex items-center justify-between"><span>{item.qty}× {item.name_ar}</span><span className="text-muted-foreground">{formatSAR(item.line_total)}</span></div>
-                        {item.order_item_modifiers.length > 0 ? <span className="text-xs text-muted-foreground">{item.order_item_modifiers.map((m) => m.name_ar).join("، ")}</span> : null}
-                        {item.notes ? <span className="text-xs text-muted-foreground">ملاحظة: {item.notes}</span> : null}
-                      </li>
-                    ))}
-                  </ul>
-                  {order.notes ? <p className="mt-2 text-xs text-muted-foreground">ملاحظات الطلب: {order.notes}</p> : null}
-                  {order.pos_last_error ? <p className="mt-2 rounded-card bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">فشل POS: {order.pos_last_error}</p> : null}
-                  {order.pos_ref ? <p className="mt-2 text-[11px] text-muted-foreground" dir="ltr">Foodics ref: {order.pos_ref}</p> : null}
+                  <div className="mt-3 border-t border-border pt-3 text-sm">
+                    {order.order_items.slice(0,3).map((item)=><div key={item.id} className="flex justify-between gap-3 py-1"><span>{item.qty}× {item.name_ar}</span><span className="text-muted-foreground">{formatSAR(Number(item.line_total))}</span></div>)}
+                    {order.order_items.length > 3 ? <p className="mt-1 text-xs text-muted-foreground">+ {order.order_items.length - 3} أصناف أخرى</p> : null}
+                  </div>
+                  {order.pos_last_error ? <p className="mt-2 rounded-card bg-danger/10 px-3 py-2 text-[11px] font-bold text-danger">فشل إرسال POS</p> : null}
 
                   <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-                    {order.order_type === "delivery" ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
+                    {order.order_type === "delivery" && (order.status === "ready" || order.status === "out_for_delivery") ? <DeliveryAssignmentPanel orderId={order.id} status={order.status} /> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {action ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, action.next)} className="min-w-40 flex-1 rounded-pill bg-brand px-4 py-2.5 text-sm font-bold text-brand-ink disabled:opacity-50">{action.label}</button> : null}
-                      {canManageIntegrations && order.pos_status !== "sent" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="rounded-pill border border-brand/40 px-4 py-2.5 text-sm font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : order.pos_status === "failed" ? "إعادة الإرسال إلى فودكس" : "إرسال إلى فودكس"}</button> : null}
+                      {canManageIntegrations && order.pos_status === "failed" ? <button type="button" disabled={isPosPending} onClick={() => handleFoodicsPush(order)} className="rounded-pill border border-brand/40 px-4 py-2.5 text-sm font-bold text-brand disabled:opacity-50">{isPosPending ? "جاري الإرسال…" : "إعادة الإرسال إلى فودكس"}</button> : null}
                       {canCancel(order) ? <button type="button" disabled={isPending} onClick={() => handleAction(order.id, "cancelled")} className="rounded-pill border border-danger/40 px-4 py-2.5 text-sm font-bold text-danger disabled:opacity-50">إلغاء</button> : null}
                     </div>
                   </div>
@@ -350,7 +291,8 @@ function StaffOrdersPage() {
           </div>
         )}
 
-        <button type="button" onClick={() => queryClient.invalidateQueries({ queryKey: ["staff_orders"] })} className="mx-auto mt-6 flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><RefreshCw aria-hidden className="size-3.5" />تحديث الآن</button>
+        {tab === "all" && grouped.length >= 200 ? <p className="mt-4 text-center text-xs text-muted-foreground">يعرض آخر 200 طلب. استخدم البحث والفلاتر لتضييق النتائج.</p> : null}
+        <button type="button" onClick={() => { void queryClient.invalidateQueries({ queryKey: ["staff_orders"] }); void queryClient.invalidateQueries({ queryKey: ["staff_order_tab_counts"] }); }} className="mx-auto mt-6 flex items-center gap-1.5 text-xs font-bold text-muted-foreground"><RefreshCw className="size-3.5" />تحديث الآن</button>
       </div>
 
       {selectedOrderId ? <OrderDetailWorkspace orderId={selectedOrderId} onClose={() => setSelectedOrderId(null)} /> : null}
@@ -359,19 +301,5 @@ function StaffOrdersPage() {
 }
 
 function OrderFilter({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {
-  return (
-    <label className="grid gap-1 text-[11px] font-bold text-muted-foreground">
-      {label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="rounded-card border border-border bg-background px-3 py-2.5 text-xs font-bold text-foreground">
-        {children}
-      </select>
-    </label>
-  );
-}
-
-function PosBadge({ order }: { order: StaffOrder }) {
-  if (order.pos_status === "sent") return <span className="rounded-pill bg-success/10 px-2 py-1 text-[10px] font-bold text-success">Foodics: تم الإرسال</span>;
-  if (order.pos_status === "sending" || order.pos_status === "queued") return <span className="rounded-pill bg-brand/10 px-2 py-1 text-[10px] font-bold text-brand">Foodics: جاري الإرسال</span>;
-  if (order.pos_status === "failed") return <span className="rounded-pill bg-danger/10 px-2 py-1 text-[10px] font-bold text-danger">Foodics: فشل الإرسال</span>;
-  return <span className="rounded-pill bg-secondary px-2 py-1 text-[10px] font-bold text-muted-foreground">Foodics: لم يرسل</span>;
+  return <label className="grid gap-1 text-[11px] font-bold text-muted-foreground">{label}<select value={value} onChange={(event) => onChange(event.target.value)} className="rounded-card border border-border bg-background px-3 py-2.5 text-xs font-bold text-foreground">{children}</select></label>;
 }

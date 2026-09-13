@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BellRing, CheckCircle2, KeyRound, MessageSquareText, Settings2 } from "lucide-react";
 
@@ -120,6 +120,6 @@ export function OneSignalIntegrationWorkspace({ integration }: { integration: In
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function Stat({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return <div className="card-surface border border-border p-4"><div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">{icon}{label}</div><p className="mt-2 truncate text-base font-extrabold">{value}</p></div>;
 }

@@ -225,3 +225,14 @@ export async function testLoyverseConnection(): Promise<{
   if (error) throw error;
   return data;
 }
+
+export async function testOneSignalConnection(): Promise<{
+  ok: boolean;
+  id: string;
+  name: string | null;
+}> {
+  if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
+  const { data, error } = await supabase.functions.invoke("onesignal-test", { body: {} });
+  if (error) throw error;
+  return data;
+}

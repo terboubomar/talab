@@ -4,9 +4,11 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
+import { FileText, UserRound } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
@@ -125,12 +127,41 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function StorefrontCustomerDock() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const hidden = pathname.startsWith("/admin") || pathname === "/account" || pathname === "/policies";
+  if (hidden) return null;
+
+  return (
+    <nav
+      aria-label="حساب العميل"
+      className="fixed bottom-20 start-3 z-40 flex items-center gap-2 rounded-pill border border-line bg-surface-raised/95 p-1.5 shadow-2 backdrop-blur lg:bottom-4"
+    >
+      <Link
+        to="/account"
+        className="inline-flex min-h-10 items-center gap-2 rounded-pill px-3 text-xs font-extrabold text-ink transition hover:bg-surface-sunk"
+      >
+        <UserRound className="size-4 text-brand" />
+        حسابي
+      </Link>
+      <Link
+        to="/policies"
+        aria-label="السياسات والشروط"
+        className="grid size-10 place-items-center rounded-full text-ink-2 transition hover:bg-surface-sunk"
+      >
+        <FileText className="size-4" />
+      </Link>
+    </nav>
+  );
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
       <StorefrontTracking />
+      <StorefrontCustomerDock />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>

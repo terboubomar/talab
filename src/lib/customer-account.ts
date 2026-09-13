@@ -69,7 +69,15 @@ export function normalizeSaudiPhone(value: string) {
 export async function requestCustomerOtp(phone: string) {
   if (!supabase) throw new Error("قاعدة البيانات غير متصلة");
   const normalized = normalizeSaudiPhone(phone);
-  const { error } = await supabase.auth.signInWithOtp({ phone: normalized });
+  const { error } = await supabase.auth.signInWithOtp({
+    phone: normalized,
+    options: {
+      data: {
+        tenant_slug: TENANT_SLUG,
+        auth_source: "storefront_customer_account",
+      },
+    },
+  });
   if (error) throw error;
   return normalized;
 }

@@ -5,6 +5,7 @@ import { ArrowRight, ChevronLeft, LockKeyhole, PlugZap, Search, Store } from "lu
 
 import { FoodicsIntegrationWorkspace } from "@/components/admin/FoodicsIntegrationWorkspace";
 import { LoyverseIntegrationWorkspace } from "@/components/admin/LoyverseIntegrationWorkspace";
+import { OneSignalIntegrationWorkspace } from "@/components/admin/OneSignalIntegrationWorkspace";
 import {
   TrackingIntegrationWorkspace,
   isTrackingIntegration,
@@ -230,6 +231,8 @@ function AppWorkspace({ integration, onBack }: { integration: IntegrationProvide
           <FoodicsIntegrationWorkspace integration={integration} />
         ) : integration.provider_slug === "loyverse" ? (
           <LoyverseIntegrationWorkspace integration={integration} />
+        ) : integration.provider_slug === "onesignal" ? (
+          <OneSignalIntegrationWorkspace integration={integration} />
         ) : tracking ? (
           <TrackingIntegrationWorkspace integration={integration} />
         ) : (
@@ -296,5 +299,8 @@ function capabilityLabel(value: string) {
   if (value === "store_mapping") return "ربط المتاجر";
   if (value === "items_read") return "قراءة المنتجات";
   if (value === "receipts_read") return "قراءة المبيعات";
+  if (value === "sms_otp") return "OTP عبر SMS";
+  if (value === "transactional_sms") return "رسائل تشغيلية";
+  if (value === "push_notifications") return "Push Notifications";
   return value;
 }
